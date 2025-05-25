@@ -1,43 +1,44 @@
 <script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
+    var gk_isXlsx = false;
+    var gk_xlsxFileLookup = {};
+    var gk_fileData = {};
+    function filledCell(cell) {
+      return cell !== '' && cell != null;
+    }
+    function loadFileData(filename) {
+      if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+          try {
+              var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+              var firstSheetName = workbook.SheetNames[0];
+              var worksheet = workbook.Sheets[firstSheetName];
 
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
+              // Convert sheet to JSON to filter blank rows
+              var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+              // Filter out blank rows (rows where all cells are empty, null, or undefined)
+              var filteredData = jsonData.filter(row => row.some(filledCell));
 
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
+              // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+              var headerRowIndex = filteredData.findIndex((row, index) =>
+                row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+              );
+              // Fallback
+              if (headerRowIndex === -1 || headerRowIndex > 25) {
+                headerRowIndex = 0;
+              }
 
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+              // Convert filtered JSON back to CSV
+              var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+              csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+              return csv;
+          } catch (e) {
+              console.error(e);
+              return "";
+          }
+      }
+      return gk_fileData[filename] || "";
+    }
+</script>
+<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8">
@@ -46,7 +47,10 @@
   <meta name="keywords" content="تماس تصویری, RemoteVM, ویدیو کنفرانس, استریم">
   <meta name="author" content="RemoteVM">
   <title>تماس تصویری دوطرفه - RemoteVM</title>
+  <!-- Favicon با پشتیبانی چندگانه -->
   <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
@@ -180,6 +184,113 @@
       from { transform: scale(3); opacity: 0; }
       to { transform: scale(1); opacity: 1; }
     }
+    /* استایل هیتک برای بخش لینک‌ها */
+    .link-card {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+      padding: 1.5rem;
+      transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .dark .link-card {
+      background: linear-gradient(135deg, rgba(31, 41, 55, 0.1) 0%, rgba(31, 41, 55, 0.05) 100%);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    .link-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+      animation: pulse 6s infinite;
+      z-index: 0;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0); }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+    .link-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+      border-color: rgba(59, 130, 246, 0.5);
+    }
+    .link-card > * {
+      position: relative;
+      z-index: 1;
+    }
+    .link-label {
+      font-size: 0.9rem;
+      color: var(--text-color);
+      opacity: 0.8;
+      transition: color 0.3s ease, opacity 0.3s ease;
+    }
+    .link-card:hover .link-label {
+      color: #3b82f6;
+      opacity: 1;
+    }
+    .dark .link-card:hover .link-label {
+      color: #60a5fa;
+    }
+    .link-input {
+      border: none;
+      background: transparent;
+      color: var(--text-color);
+      padding: 0.75rem;
+      width: 100%;
+      font-size: 0.95rem;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+    .link-input:focus {
+      outline: none;
+      background: rgba(255, 255, 255, 0.15);
+    }
+    .dark .link-input:focus {
+      background: rgba(31, 41, 55, 0.15);
+    }
+    .copy-btn {
+      background: linear-gradient(45deg, #3b82f6, #9333ea);
+      color: white;
+      border-radius: 10px;
+      padding: 0.75rem 1.25rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: transform 0.2s ease, background 0.3s ease, box-shadow 0.3s ease;
+      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+    }
+    .copy-btn:hover {
+      transform: translateY(-2px) scale(1.05);
+      background: linear-gradient(45deg, #60a5fa, #a855f7);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+    }
+    .copy-btn:active {
+      transform: scale(0.95);
+    }
+    #copyMessage, #errorMessage {
+      padding: 0.75rem 1.5rem;
+      border-radius: 10px;
+      margin-top: 1rem;
+      display: inline-block;
+      animation: slideIn 0.5s ease-out;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      color: var(--text-color);
+    }
+    #copyMessage {
+      border: 1px solid #22c55e;
+    }
+    #errorMessage {
+      border: 1px solid #ef4444;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
   </style>
 </head>
 <body class="min-h-screen flex items-center justify-center">
@@ -307,22 +418,21 @@
       <div id="loader" class="loader hidden" aria-label="در حال بارگذاری"></div>
 
       <section id="linksSection" class="mt-8 hidden">
-        <h2 class="font-medium mb-4">لینک‌های اشتراک:</h2>
-        <div class="space-y-4">
-          <div>
-            <label for="hostLink" class="block font-medium mb-2">لینک فرستنده (Server):</label>
-            <div class="flex gap-2">
+        <h2 class="font-medium mb-4 text-xl text-gray-800 dark:text-gray-200">لینک‌های اشتراک</h2>
+        <div class="grid grid-cols-1 gap-4">
+          <div class="link-card">
+            <label for="hostLink" class="link-label block font-medium mb-2">لینک فرستنده (Server)</label>
+            <div class="flex items-center gap-2">
               <input 
                 type="text" 
                 id="hostLink" 
-                class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                class="link-input" 
                 readonly 
                 aria-label="لینک فرستنده"
-                style="color: var(--text-color);"
               >
               <button 
                 onclick="copyLink('hostLink')" 
-                class="btn bg-gray-200 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-300" 
+                class="copy-btn" 
                 aria-label="کپی لینک فرستنده"
                 data-tooltip="کپی لینک فرستنده"
               >
@@ -332,20 +442,19 @@
               </button>
             </div>
           </div>
-          <div>
-            <label for="viewerLink" class="block font-medium mb-2">لینک بیننده (Client):</label>
-            <div class="flex gap-2">
+          <div class="link-card">
+            <label for="viewerLink" class="link-label block font-medium mb-2">لینک بیننده (Client)</label>
+            <div class="flex items-center gap-2">
               <input 
                 type="text" 
                 id="viewerLink" 
-                class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                class="link-input" 
                 readonly 
                 aria-label="لینک بیننده"
-                style="color: var(--text-color);"
               >
               <button 
                 onclick="copyLink('viewerLink')" 
-                class="btn bg-gray-200 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-300" 
+                class="copy-btn" 
                 aria-label="کپی لینک بیننده"
                 data-tooltip="کپی لینک بیننده"
               >
@@ -355,20 +464,19 @@
               </button>
             </div>
           </div>
-          <div>
-            <label for="directorLink" class="block font-medium mb-2">لینک مدیر:</label>
-            <div class="flex gap-2">
+          <div class="link-card">
+            <label for="directorLink" class="link-label block font-medium mb-2">لینک مدیر</label>
+            <div class="flex items-center gap-2">
               <input 
                 type="text" 
                 id="directorLink" 
-                class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                class="link-input" 
                 readonly 
                 aria-label="لینک مدیر"
-                style="color: var(--text-color);"
               >
               <button 
                 onclick="copyLink('directorLink')" 
-                class="btn bg-gray-200 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-300" 
+                class="copy-btn" 
                 aria-label="کپی لینک مدیر"
                 data-tooltip="کپی لینک مدیر"
               >
@@ -378,20 +486,19 @@
               </button>
             </div>
           </div>
-          <div>
-            <label for="obsLink" class="block font-medium mb-2">لینک مخصوص OBS:</label>
-            <div class="flex gap-2">
+          <div class="link-card">
+            <label for="obsLink" class="link-label block font-medium mb-2">لینک مخصوص OBS</label>
+            <div class="flex items-center gap-2">
               <input 
                 type="text" 
                 id="obsLink" 
-                class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                class="link-input" 
                 readonly 
                 aria-label="لینک OBS"
-                style="color: var(--text-color);"
               >
               <button 
                 onclick="copyLink('obsLink')" 
-                class="btn bg-gray-200 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-300" 
+                class="copy-btn" 
                 aria-label="کپی لینک OBS"
                 data-tooltip="کپی لینک OBS"
               >
@@ -402,8 +509,8 @@
             </div>
           </div>
         </div>
-        <p id="copyMessage" class="mt-2 text-sm text-green-400 hidden" role="alert">لینک با موفقیت کپی شد!</p>
-        <p id="errorMessage" class="mt-2 text-sm text-red-500 hidden" role="alert"></p>
+        <p id="copyMessage" class="mt-2 text-sm text-green-500 dark:text-green-400 hidden" role="alert">لینک با موفقیت کپی شد!</p>
+        <p id="errorMessage" class="mt-2 text-sm text-red-500 dark:text-red-400 hidden" role="alert"></p>
       </section>
     </main>
 
