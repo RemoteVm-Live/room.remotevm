@@ -1,0 +1,690 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="تماس تصویری دوطرفه با RemoteVM">
+  <meta name="keywords" content="تماس تصویری, RemoteVM, ویدیو کنفرانس, استریم">
+  <meta name="author" content="RemoteVM">
+  <title>تماس تصویری دوطرفه - RemoteVM</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+      font-family: 'Vazirmatn', sans-serif;
+      --text-color: #1f2937;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+    .dark {
+      background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+      --text-color: #f9fafb;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    .dark .container {
+      background: rgba(17, 24, 39, 0.95);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    h1, h2, label {
+      color: var(--text-color);
+    }
+    select, input {
+      color: var(--text-color);
+      background-color: rgba(255, 255, 255, 0.8);
+      border-color: rgba(0, 0, 0, 0.2);
+    }
+    select option {
+      color: #1f2937;
+    }
+    .dark select, .dark input {
+      background-color: rgba(17, 24, 39, 0.8);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .dark select option {
+      color: #f9fafb;
+    }
+    .btn {
+      transition: all 0.3s ease;
+      transform: scale(1);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+    .btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .loader {
+      border: 4px solid rgba(255, 255, 255, 0.2);
+      border-top: 4px solid #3b82f6;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    .dark .loader {
+      border-color: rgba(255, 255, 255, 0.2);
+      border-top-color: #60a5fa;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .tooltip {
+      position: relative;
+    }
+    .tooltip:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #374151;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      white-space: nowrap;
+      z-index: 10;
+    }
+    .status-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-left: 8px;
+    }
+    .status-active { background: #22c55e; }
+    .status-inactive { background: #ef4444; }
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(240, 247, 247);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      opacity: 1;
+      transition: opacity 0.7s ease;
+    }
+    .overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .zoom-text {
+      color: #22baed;
+      font-size: 3.5rem;
+      font-weight: bold;
+      font-family: 'Vazirmatn', sans-serif;
+      animation: zoomIn 0.6s ease-in-out;
+    }
+    @keyframes zoomIn {
+      from { transform: scale(3); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center">
+  <div id="overlay" class="overlay">
+    <span class="zoom-text">Remote Vm</span>
+  </div>
+  <div class="container mx-auto p-6 max-w-xl rounded-xl shadow-2xl">
+    <header class="flex justify-between items-center mb-8">
+      <div class="flex items-center gap-2">
+        <h1 class="text-3xl font-bold">تماس تصویری دوطرفه RemoteVM</h1>
+        <span id="statusIndicator" class="status-indicator status-inactive" aria-label="وضعیت تماس"></span>
+      </div>
+      <button 
+        id="themeToggle" 
+        class="btn p-2 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-800" 
+        aria-label="تغییر تم"
+        data-tooltip="تغییر تم"
+      >
+        <svg id="themeIcon" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </header>
+
+    <main class="fade-in">
+      <div class="mb-8">
+        <label for="roomIdInput" class="block font-medium mb-2">نام اتاق:</label>
+        <input 
+          type="text" 
+          id="roomIdInput" 
+          class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+          placeholder="نام اتاق را وارد کنید" 
+          aria-label="نام اتاق"
+          style="color: var(--text-color);"
+        >
+      </div>
+      <div class="mb-8">
+        <label for="passwordInput" class="block font-medium mb-2">رمز عبور:</label>
+        <input 
+          type="password" 
+          id="passwordInput" 
+          class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+          placeholder="رمز عبور را وارد کنید" 
+          aria-label="رمز عبور"
+          style="color: var(--text-color);"
+        >
+      </div>
+      <div class="grid grid-cols-2 gap-4 mb-8">
+        <button 
+          id="startCallBtn" 
+          onclick="startVDOCall()" 
+          class="btn bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-blue-400" 
+          aria-label="ساخت اتاق تماس"
+          data-tooltip="شروع تماس جدید"
+        >
+          <svg class="w-5 h-5 inline-block ml-2" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-11h2v4h4v2h-4v4h-2v-4H5v-2h4V7z"/>
+          </svg>
+          ساخت اتاق تماس
+        </button>
+        <button 
+          id="stopCallButton" 
+          onclick="stopVDOCall()" 
+          class="btn bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 hidden" 
+          aria-label="توقف تماس"
+          data-tooltip="پایان دادن به تماس"
+        >
+          <svg class="w-5 h-5 inline-block ml-2" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 18a8 8 0 100-16 8 8 0 000-16zM8 7h4v6H8V7z"/>
+          </svg>
+          توقف تماس
+        </button>
+        <button 
+          id="resetButton" 
+          onclick="resetPage()" 
+          class="btn bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 hidden" 
+          aria-label="ریست صفحه"
+          data-tooltip="بازنشانی تنظیمات"
+        >
+          <svg class="w-5 h-5 inline-block ml-2" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M4 2a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V4a2 2 0 00-2-2H4zm2 5h8v2H6V7z"/>
+          </svg>
+          ریست صفحه
+        </button>
+        <button 
+          id="muteButton" 
+          onclick="toggleMute()" 
+          class="btn bg-yellow-600 text-white px-6 py-3 rounded-lg hover:bg-yellow-700 hidden" 
+          aria-label="بی‌صدا کردن"
+          data-tooltip="بی‌صدا/باصدا کردن میکروفون"
+        >
+          <svg class="w-5 h-5 inline-block ml-2" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 3a2 2 0 00-2 2v5a2 2 0 002 2h1l1 5h2V3h-4z"/>
+          </svg>
+          بی‌صدا
+        </button>
+        <button 
+          id="shareButton" 
+          onclick="shareRoomLink()" 
+          class="btn bg-teal-600 text-white px-6 py-3 rounded-lg hover:bg-teal-700 hidden" 
+          aria-label="نمایش لینک‌های اشتراک"
+          data-tooltip="نمایش لینک‌های اتاق برای اشتراک"
+        >
+          <svg class="w-5 h-5 inline-block ml-2" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M15 8a3 3 0 10-2.12-5.12L8 7.76 3.12 2.88a3 3 0 10-1.42 1.42L6.58 9 1.7 13.88a3 3 0 104.24 4.24L11 13.24l4.88 4.88a3 3 0 104.24-4.24L15.24 9l4.88-4.88A3 3 0 0015 8z"/>
+          </svg>
+          لینک‌های اشتراک
+        </button>
+      </div>
+
+      <div class="mb-8">
+        <label for="qualitySelect" class="block font-medium mb-2">کیفیت ویدیو:</label>
+        <select 
+          id="qualitySelect" 
+          class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="انتخاب کیفیت ویدیو"
+          style="color: var(--text-color);"
+        >
+          <option value="480">480p</option>
+          <option value="720" selected>720p (پیش‌فرض)</option>
+          <option value="1080">1080p</option>
+        </select>
+      </div>
+
+      <div id="loader" class="loader hidden" aria-label="در حال بارگذاری"></div>
+
+      <section id="linksSection" class="mt-8 hidden">
+        <h2 class="font-medium mb-4">لینک‌های اشتراک:</h2>
+        <div class="space-y-4">
+          <div>
+            <label for="hostLink" class="block font-medium mb-2">لینک فرستنده (Server):</label>
+            <div class="flex gap-2">
+              <input 
+                type="text" 
+                id="hostLink" 
+                class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                readonly 
+                aria-label="لینک فرستنده"
+                style="color: var(--text-color);"
+              >
+              <button 
+                onclick="copyLink('hostLink')" 
+                class="btn bg-gray-200 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-300" 
+                aria-label="کپی لینک فرستنده"
+                data-tooltip="کپی لینک فرستنده"
+              >
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M8 2a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2V6l-3-3H8zm0 1h5l2 2v9H8V3zm-1 2H6a2 2 0 00-2 2v10a2 2 0 002 2h6v-2H6V7h1V5z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label for="viewerLink" class="block font-medium mb-2">لینک بیننده (Client):</label>
+            <div class="flex gap-2">
+              <input 
+                type="text" 
+                id="viewerLink" 
+                class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                readonly 
+                aria-label="لینک بیننده"
+                style="color: var(--text-color);"
+              >
+              <button 
+                onclick="copyLink('viewerLink')" 
+                class="btn bg-gray-200 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-300" 
+                aria-label="کپی لینک بیننده"
+                data-tooltip="کپی لینک بیننده"
+              >
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M8 2a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2V6l-3-3H8zm0 1h5l2 2v9H8V3zm-1 2H6a2 2 0 00-2 2v10a2 2 0 002 2h6v-2H6V7h1V5z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label for="directorLink" class="block font-medium mb-2">لینک مدیر:</label>
+            <div class="flex gap-2">
+              <input 
+                type="text" 
+                id="directorLink" 
+                class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                readonly 
+                aria-label="لینک مدیر"
+                style="color: var(--text-color);"
+              >
+              <button 
+                onclick="copyLink('directorLink')" 
+                class="btn bg-gray-200 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-300" 
+                aria-label="کپی لینک مدیر"
+                data-tooltip="کپی لینک مدیر"
+              >
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M8 2a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2V6l-3-3H8zm0 1h5l2 2v9H8V3zm-1 2H6a2 2 0 00-2 2v10a2 2 0 002 2h6v-2H6V7h1V5z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label for="obsLink" class="block font-medium mb-2">لینک مخصوص OBS:</label>
+            <div class="flex gap-2">
+              <input 
+                type="text" 
+                id="obsLink" 
+                class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                readonly 
+                aria-label="لینک OBS"
+                style="color: var(--text-color);"
+              >
+              <button 
+                onclick="copyLink('obsLink')" 
+                class="btn bg-gray-200 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-300" 
+                aria-label="کپی لینک OBS"
+                data-tooltip="کپی لینک OBS"
+              >
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M8 2a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2V6l-3-3H8zm0 1h5l2 2v9H8V3zm-1 2H6a2 2 0 00-2 2v10a2 2 0 002 2h6v-2H6V7h1V5z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <p id="copyMessage" class="mt-2 text-sm text-green-400 hidden" role="alert">لینک با موفقیت کپی شد!</p>
+        <p id="errorMessage" class="mt-2 text-sm text-red-500 hidden" role="alert"></p>
+      </section>
+    </main>
+
+    <footer class="mt-8 text-center text-gray-600 dark:text-gray-400 text-sm">
+      <p>© 2025 <a href="https://remotevm.ir" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">RemoteVM</a> -- <a href="https://remotevm.site" target="_blank" class="text-blue-600 dark:text-blue-400">R.V.M</a>. تمامی حقوق محفوظ است.</p>
+    </footer>
+  </div>
+
+  <script>
+    // State management
+    let state = {
+      isCallActive: false,
+      isMuted: false,
+      obsLink: '',
+      hostLink: '',
+      viewerLink: '',
+      directorLink: '',
+      isLoading: false,
+      roomId: '',
+      password: '',
+      streamId: 'server',
+      peerStreamId: 'client'
+    };
+
+    // DOM elements
+    const elements = {
+      obsLinkInput: document.getElementById('obsLink'),
+      hostLinkInput: document.getElementById('hostLink'),
+      viewerLinkInput: document.getElementById('viewerLink'),
+      directorLinkInput: document.getElementById('directorLink'),
+      linksSection: document.getElementById('linksSection'),
+      stopCallButton: document.getElementById('stopCallButton'),
+      resetButton: document.getElementById('resetButton'),
+      startCallBtn: document.getElementById('startCallBtn'),
+      muteButton: document.getElementById('muteButton'),
+      shareButton: document.getElementById('shareButton'),
+      loader: document.getElementById('loader'),
+      qualitySelect: document.getElementById('qualitySelect'),
+      copyMessage: document.getElementById('copyMessage'),
+      errorMessage: document.getElementById('errorMessage'),
+      statusIndicator: document.getElementById('statusIndicator'),
+      themeToggle: document.getElementById('themeToggle'),
+      themeIcon: document.getElementById('themeIcon'),
+      overlay: document.getElementById('overlay'),
+      roomIdInput: document.getElementById('roomIdInput'),
+      passwordInput: document.getElementById('passwordInput')
+    };
+
+    // Utility functions
+    const debounce = (func, wait) => {
+      let timeout;
+      return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    };
+
+    const showMessage = (message, type) => {
+      const messageElement = type === 'success' ? elements.copyMessage : elements.errorMessage;
+      messageElement.textContent = message;
+      messageElement.classList.remove('hidden');
+      setTimeout(() => messageElement.classList.add('hidden'), 2000);
+    };
+
+    const toggleLoader = (show) => {
+      state.isLoading = show;
+      elements.loader.classList.toggle('hidden', !show);
+      elements.startCallBtn.disabled = show;
+    };
+
+    const updateStatusIndicator = () => {
+      elements.statusIndicator.classList.toggle('status-active', state.isCallActive);
+      elements.statusIndicator.classList.toggle('status-inactive', !state.isCallActive);
+    };
+
+    // Theme toggle function
+    const updateThemeIcon = () => {
+      const isDark = document.body.classList.contains('dark');
+      elements.themeIcon.innerHTML = isDark
+        ? '<path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12zm-1-6a1 1 0 112 0 1 1 0 01-2 0z"/>'
+        : '<path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>';
+    };
+
+    // Overlay animation
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        elements.overlay.classList.add('hidden');
+      }, 1200);
+    });
+
+    // Validate input
+    const validateInput = (input, fieldName) => {
+      const regex = /^[a-zA-Z0-9_-]{1,31}$/;
+      if (!input || !regex.test(input)) {
+        showMessage(`لطفاً ${fieldName} معتبر وارد کنید (فقط حروف، اعداد، خط تیره و زیرخط، حداکثر 31 کاراکتر)`, 'error');
+        return false;
+      }
+      return true;
+    };
+
+    // Copy link
+    async function copyLink(linkId) {
+      const linkInput = document.getElementById(linkId);
+      if (!linkInput.value) {
+        showMessage('لینکی برای کپی وجود ندارد!', 'error');
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(linkInput.value);
+        showMessage('لینک با موفقیت کپی شد!', 'success');
+      } catch {
+        linkInput.select();
+        try {
+          document.execCommand('copy');
+          showMessage('لینک با موفقیت کپی شد!', 'success');
+        } catch {
+          showMessage('خطا در کپی لینک!', 'error');
+        }
+      }
+    }
+
+    // Main functions
+    async function startVDOCall() {
+      if (state.isCallActive || state.isLoading) return;
+
+      const roomId = elements.roomIdInput.value.trim() || 'room' + Math.random().toString(36).substr(2, 8);
+      const password = elements.passwordInput.value.trim();
+      const streamId = 'server';
+      const peerStreamId = 'client';
+
+      if (!validateInput(roomId, 'نام اتاق')) return;
+      if (!validateInput(password, 'رمز عبور')) return;
+
+      try {
+        toggleLoader(true);
+        state.isCallActive = true;
+        state.roomId = roomId;
+        state.password = password;
+        state.streamId = streamId;
+        state.peerStreamId = peerStreamId;
+        elements.startCallBtn.disabled = true;
+        elements.muteButton.classList.remove('hidden');
+        elements.shareButton.classList.remove('hidden');
+
+        const quality = elements.qualitySelect.value;
+        let resolution;
+        switch (quality) {
+          case "480":
+            resolution = "&width=854&height=480";
+            break;
+          case "1080":
+            resolution = "&width=1920&height=1080";
+            break;
+          default:
+            resolution = "&width=1280&height=720";
+        }
+
+        // Host link (for server)
+        state.hostLink = `https://live.remotevm.ir/?room=${roomId}&password=${password}&broadcast&proaudio=1&push=${streamId}&clean${resolution}`;
+        // Viewer link (for client to view server)
+        state.viewerLink = `https://live.remotevm.ir/?view=${streamId}&solo&room=${roomId}&password=${password}&proaudio&clean${resolution}`;
+        // Director link
+        state.directorLink = `https://live.remotevm.ir/?director=${roomId}&password=${password}`;
+        // OBS link (for viewing server)
+        state.obsLink = `https://live.remotevm.ir/?view=${streamId}&solo&room=${roomId}&password=${password}&proaudio&clean${resolution}`;
+
+        elements.hostLinkInput.value = state.hostLink;
+        elements.viewerLinkInput.value = state.viewerLink;
+        elements.directorLinkInput.value = state.directorLink;
+        elements.obsLinkInput.value = state.obsLink;
+        elements.linksSection.classList.remove('hidden');
+        elements.stopCallButton.classList.remove('hidden');
+        elements.resetButton.classList.remove('hidden');
+        
+        updateStatusIndicator();
+        showMessage('اتاق تماس با موفقیت ایجاد شد', 'success');
+      } catch (error) {
+        showMessage('خطا در ایجاد تماس: ' + error.message, 'error');
+        resetPage();
+      } finally {
+        toggleLoader(false);
+      }
+    }
+
+    function stopVDOCall() {
+      if (!state.isCallActive) return;
+      
+      state.isCallActive = false;
+      state.isMuted = false;
+      state.obsLink = '';
+      state.hostLink = '';
+      state.viewerLink = '';
+      state.directorLink = '';
+      state.roomId = '';
+      state.password = '';
+      state.streamId = '';
+      state.peerStreamId = '';
+      
+      elements.linksSection.classList.add('hidden');
+      elements.stopCallButton.classList.add('hidden');
+      elements.muteButton.classList.add('hidden');
+      elements.shareButton.classList.add('hidden');
+      elements.resetButton.classList.add('hidden');
+      elements.startCallBtn.disabled = false;
+      
+      updateStatusIndicator();
+      showMessage('تماس با موفقیت متوقف شد', 'success');
+    }
+
+    function resetPage() {
+      state.isCallActive = false;
+      state.isMuted = false;
+      state.obsLink = '';
+      state.hostLink = '';
+      state.viewerLink = '';
+      state.directorLink = '';
+      state.roomId = '';
+      state.password = '';
+      state.streamId = '';
+      state.peerStreamId = '';
+      
+      elements.linksSection.classList.add('hidden');
+      elements.stopCallButton.classList.add('hidden');
+      elements.muteButton.classList.add('hidden');
+      elements.shareButton.classList.add('hidden');
+      elements.resetButton.classList.add('hidden');
+      elements.obsLinkInput.value = '';
+      elements.hostLinkInput.value = '';
+      elements.viewerLinkInput.value = '';
+      elements.directorLinkInput.value = '';
+      elements.roomIdInput.value = '';
+      elements.passwordInput.value = '';
+      elements.qualitySelect.value = '720';
+      elements.startCallBtn.disabled = false;
+      
+      updateStatusIndicator();
+      showMessage('صفحه با موفقیت ریست شد', 'success');
+    }
+
+    async function shareRoomLink() {
+      elements.linksSection.classList.toggle('hidden');
+    }
+
+    function toggleMute() {
+      state.isMuted = !state.isMuted;
+      elements.muteButton.innerHTML = `
+        <svg class="w-5 h-5 inline-block ml-2" fill="currentColor" viewBox="0 0 20 20">
+          <path d="${state.isMuted ? 'M10 3a2 2 0 00-2 2v5l-3 3v2h3l3-3h1V5a2 2 0 00-2-2H8zm5 2l-3 3' : 'M10 3a2 2 0 00-2 2v5a2 2 0 002 2h1l1 5h2V3h-4z'}"/>
+        </svg>
+        ${state.isMuted ? 'باصدا' : 'بی‌صدا'}
+      `;
+      showMessage(state.isMuted ? 'میکروفون بی‌صدا شد' : 'میکروفون باصدا شد', 'success');
+    }
+
+    // Event listeners
+    elements.themeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      const isDark = document.body.classList.contains('dark');
+      updateThemeIcon();
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      console.log('Theme toggled to:', isDark ? 'dark' : 'light');
+    });
+
+    // Initialize theme
+    if (localStorage.getItem('theme') === 'dark') {
+      document.body.classList.add('dark');
+    }
+    updateThemeIcon();
+
+    // Debounced window resize handler
+    window.addEventListener('resize', debounce(() => {}, 200));
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && document.activeElement === elements.startCallBtn) {
+        startVDOCall();
+      } else if (e.key === 'Enter' && document.activeElement === elements.shareButton) {
+        shareRoomLink();
+      }
+    });
+  </script>
+</body>
+</html>
