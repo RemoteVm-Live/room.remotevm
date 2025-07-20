@@ -1,797 +1,1232 @@
-<script type="text/javascript">
-    var gk_isXlsx = false;
-    var gk_xlsxFileLookup = {};
-    var gk_fileData = {};
-    function filledCell(cell) {
-      return cell !== '' && cell != null;
-    }
-    function loadFileData(filename) {
-      if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-          try {
-              var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-              var firstSheetName = workbook.SheetNames[0];
-              var worksheet = workbook.Sheets[firstSheetName];
-
-              // Convert sheet to JSON to filter blank rows
-              var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-              // Filter out blank rows (rows where all cells are empty, null, or undefined)
-              var filteredData = jsonData.filter(row => row.some(filledCell));
-
-              // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-              var headerRowIndex = filteredData.findIndex((row, index) =>
-                row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-              );
-              // Fallback
-              if (headerRowIndex === -1 || headerRowIndex > 25) {
-                headerRowIndex = 0;
-              }
-
-              // Convert filtered JSON back to CSV
-              var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-              csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-              return csv;
-          } catch (e) {
-              console.error(e);
-              return "";
-          }
-      }
-      return gk_fileData[filename] || "";
-    }
-</script>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content=" Stream با RemoteVM">
-  <meta name="keywords" content="تماس تصویری, RemoteVM, ویدیو کنفرانس, استریم">
-  <meta name="author" content="RemoteVM">
-  <title>  Stream - RemoteVM</title>
-  <!-- Favicon با پشتیبانی چندگانه -->
-  <link rel="icon" type="image/png" href="favicon.png">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body {
-      background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-      font-family: 'Vazirmatn', sans-serif;
-      --text-color: #1f2937;
-      transition: background 0.3s ease, color 0.3s ease;
-    }
-    .dark {
-      background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-      --text-color: #f9fafb;
-    }
-    .container {
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(0, 0, 0, 0.1);
-    }
-    .dark .container {
-      background: rgba(17, 24, 39, 0.95);
-      border-color: rgba(255, 255, 255, 0.1);
-    }
-    h1, h2, label {
-      color: var(--text-color);
-    }
-    select, input {
-      color: var(--text-color);
-      background-color: rgba(255, 255, 255, 0.8);
-      border-color: rgba(0, 0, 0, 0.2);
-    }
-    select option {
-      color: #1f2937;
-    }
-    .dark select, .dark input {
-      background-color: rgba(17, 24, 39, 0.8);
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-    .dark select option {
-      color: #f9fafb;
-    }
-    .btn {
-      transition: all 0.3s ease;
-      transform: scale(1);
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    }
-    .btn:hover {
-      transform: scale(1.05);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-    }
-    .btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
-    }
-    .loader {
-      border: 4px solid rgba(255, 255, 255, 0.2);
-      border-top: 4px solid #3b82f6;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 20px auto;
-    }
-    .dark .loader {
-      border-color: rgba(255, 255, 255, 0.2);
-      border-top-color: #60a5fa;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    .fade-in {
-      animation: fadeIn 0.5s ease-in;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .tooltip {
-      position: relative;
-    }
-    .tooltip:hover::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #374151;
-      color: white;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      white-space: nowrap;
-      z-index: 10;
-    }
-    .status-indicator {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      display: inline-block;
-      margin-left: 8px;
-    }
-    .status-active { background: #22c55e; }
-    .status-inactive { background: #ef4444; }
-    .overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(240, 247, 247);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10000;
-      opacity: 1;
-      transition: opacity 0.7s ease;
-    }
-    .overlay.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-    .zoom-text {
-      color: #22baed;
-      font-size: 3.5rem;
-      font-weight: bold;
-      font-family: 'Vazirmatn', sans-serif;
-      animation: zoomIn 0.6s ease-in-out;
-    }
-    @keyframes zoomIn {
-      from { transform: scale(3); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
-    }
-    /* استایل هیتک برای بخش لینک‌ها */
-    .link-card {
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
-      backdrop-filter: blur(15px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 16px;
-      padding: 1.5rem;
-      transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
-      position: relative;
-      overflow: hidden;
-    }
-    .dark .link-card {
-      background: linear-gradient(135deg, rgba(31, 41, 55, 0.1) 0%, rgba(31, 41, 55, 0.05) 100%);
-      border-color: rgba(255, 255, 255, 0.1);
-    }
-    .link-card::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
-      animation: pulse 6s infinite;
-      z-index: 0;
-    }
-    @keyframes pulse {
-      0% { transform: scale(0); }
-      100% { transform: scale(1.5); opacity: 0; }
-    }
-    .link-card:hover {
-      transform: translateY(-8px);
-      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
-      border-color: rgba(59, 130, 246, 0.5);
-    }
-    .link-card > * {
-      position: relative;
-      z-index: 1;
-    }
-    .link-label {
-      font-size: 0.9rem;
-      color: var(--text-color);
-      opacity: 0.8;
-      transition: color 0.3s ease, opacity 0.3s ease;
-    }
-    .link-card:hover .link-label {
-      color: #3b82f6;
-      opacity: 1;
-    }
-    .dark .link-card:hover .link-label {
-      color: #60a5fa;
-    }
-    .link-input {
-      border: none;
-      background: transparent;
-      color: var(--text-color);
-      padding: 0.75rem;
-      width: 100%;
-      font-size: 0.95rem;
-      transition: background 0.3s ease, color 0.3s ease;
-    }
-    .link-input:focus {
-      outline: none;
-      background: rgba(255, 255, 255, 0.15);
-    }
-    .dark .link-input:focus {
-      background: rgba(31, 41, 55, 0.15);
-    }
-    .copy-btn {
-      background: linear-gradient(45deg, #3b82f6, #9333ea);
-      color: white;
-      border-radius: 10px;
-      padding: 0.75rem 1.25rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      transition: transform 0.2s ease, background 0.3s ease, box-shadow 0.3s ease;
-      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
-    }
-    .copy-btn:hover {
-      transform: translateY(-2px) scale(1.05);
-      background: linear-gradient(45deg, #60a5fa, #a855f7);
-      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
-    }
-    .copy-btn:active {
-      transform: scale(0.95);
-    }
-    #copyMessage, #errorMessage {
-      padding: 0.75rem 1.5rem;
-      border-radius: 10px;
-      margin-top: 1rem;
-      display: inline-block;
-      animation: slideIn 0.5s ease-out;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      color: var(--text-color);
-    }
-    #copyMessage {
-      border: 1px solid #22c55e;
-    }
-    #errorMessage {
-      border: 1px solid #ef4444;
-    }
-    @keyframes slideIn {
-      from { transform: translateY(20px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-  </style>
-</head>
-<body class="min-h-screen flex items-center justify-center">
-  <div id="overlay" class="overlay">
-    <span class="zoom-text">Remote Vm</span>
-  </div>
-  <div class="container mx-auto p-6 max-w-xl rounded-xl shadow-2xl">
-    <header class="flex justify-between items-center mb-8">
-      <div class="flex items-center gap-2">
-        <h1 class="text-3xl font-bold">RemoteVM Stream</h1>
-        <span id="statusIndicator" class="status-indicator status-inactive" aria-label="وضعیت تماس"></span>
-      </div>
-      <button 
-        id="themeToggle" 
-        class="btn p-2 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-800" 
-        aria-label="تغییر تم"
-        data-tooltip="تغییر تم"
-      >
-        <svg id="themeIcon" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
-        </svg>
-      </button>
-    </header>
-
-    <main class="fade-in">
-      <div class="mb-8">
-        <label for="roomIdInput" class="block font-medium mb-2">نام اتاق:</label>
-        <input 
-          type="text" 
-          id="roomIdInput" 
-          class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
-          placeholder="نام اتاق را وارد کنید" 
-          aria-label="نام اتاق"
-          style="color: var(--text-color);"
-        >
-      </div>
-      <div class="mb-8">
-        <label for="passwordInput" class="block font-medium mb-2">رمز عبور:</label>
-        <input 
-          type="password" 
-          id="passwordInput" 
-          class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
-          placeholder="رمز عبور را وارد کنید" 
-          aria-label="رمز عبور"
-          style="color: var(--text-color);"
-        >
-      </div>
-      <div class="grid grid-cols-2 gap-4 mb-8">
-        <button 
-          id="startCallBtn" 
-          onclick="startVDOCall()" 
-          class="btn bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-blue-400" 
-          aria-label="ساخت اتاق تماس"
-          data-tooltip="شروع تماس جدید"
-        >
-          <svg class="w-5 h-5 inline-block ml-2" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-11h2v4h4v2h-4v4h-2v-4H5v-2h4V7z"/>
-          </svg>
-          ساخت اتاق تماس
-        </button>
-        <button 
-          id="stopCallButton" 
-          onclick="stopVDOCall()" 
-          class="btn bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 hidden" 
-          aria-label="توقف تماس"
-          data-tooltip="پایان دادن به تماس"
-        >
-          <svg class="w-5 h-5 inline-block ml-2" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M10 18a8 8 0 100-16 8 8 0 000-16zM8 7h4v6H8V7z"/>
-          </svg>
-          توقف تماس
-        </button>
-        <button 
-          id="resetButton" 
-          onclick="resetPage()" 
-          class="btn bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 hidden" 
-          aria-label="ریست صفحه"
-          data-tooltip="بازنشانی تنظیمات"
-        >
-          <svg class="w-5 h-5 inline-block ml-2" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M4 2a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V4a2 2 0 00-2-2H4zm2 5h8v2H6V7z"/>
-          </svg>
-          ریست صفحه
-        </button>
-        <button 
-          id="muteButton" 
-          onclick="toggleMute()" 
-          class="btn bg-yellow-600 text-white px-6 py-3 rounded-lg hover:bg-yellow-700 hidden" 
-          aria-label="بی‌صدا کردن"
-          data-tooltip="بی‌صدا/باصدا کردن میکروفون"
-        >
-          <svg class="w-5 h-5 inline-block ml-2" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M10 3a2 2 0 00-2 2v5a2 2 0 002 2h1l1 5h2V3h-4z"/>
-          </svg>
-          بی‌صدا
-        </button>
-        <button 
-          id="shareButton" 
-          onclick="shareRoomLink()" 
-          class="btn bg-teal-600 text-white px-6 py-3 rounded-lg hover:bg-teal-700 hidden" 
-          aria-label="نمایش لینک‌های اشتراک"
-          data-tooltip="نمایش لینک‌های اتاق برای اشتراک"
-        >
-          <svg class="w-5 h-5 inline-block ml-2" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M15 8a3 3 0 10-2.12-5.12L8 7.76 3.12 2.88a3 3 0 10-1.42 1.42L6.58 9 1.7 13.88a3 3 0 104.24 4.24L11 13.24l4.88 4.88a3 3 0 104.24-4.24L15.24 9l4.88-4.88A3 3 0 0015 8z"/>
-          </svg>
-          لینک‌های اشتراک
-        </button>
-      </div>
-
-      <div class="mb-8">
-        <label for="qualitySelect" class="block font-medium mb-2">کیفیت ویدیو:</label>
-        <select 
-          id="qualitySelect" 
-          class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          aria-label="انتخاب کیفیت ویدیو"
-          style="color: var(--text-color);"
-        >
-          <option value="480">480p</option>
-          <option value="720" selected>720p (پیش‌فرض)</option>
-          <option value="1080">1080p</option>
-        </select>
-      </div>
-
-      <div id="loader" class="loader hidden" aria-label="در حال بارگذاری"></div>
-
-      <section id="linksSection" class="mt-8 hidden">
-        <h2 class="font-medium mb-4 text-xl text-gray-800 dark:text-gray-200">لینک‌های اشتراک</h2>
-        <div class="grid grid-cols-1 gap-4">
-          <div class="link-card">
-            <label for="hostLink" class="link-label block font-medium mb-2">لینک فرستنده (Server)</label>
-            <div class="flex items-center gap-2">
-              <input 
-                type="text" 
-                id="hostLink" 
-                class="link-input" 
-                readonly 
-                aria-label="لینک فرستنده"
-              >
-              <button 
-                onclick="copyLink('hostLink')" 
-                class="copy-btn" 
-                aria-label="کپی لینک فرستنده"
-                data-tooltip="کپی لینک فرستنده"
-              >
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M8 2a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2V6l-3-3H8zm0 1h5l2 2v9H8V3zm-1 2H6a2 2 0 00-2 2v10a2 2 0 002 2h6v-2H6V7h1V5z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="link-card">
-            <label for="viewerLink" class="link-label block font-medium mb-2">لینک بیننده (Client)</label>
-            <div class="flex items-center gap-2">
-              <input 
-                type="text" 
-                id="viewerLink" 
-                class="link-input" 
-                readonly 
-                aria-label="لینک بیننده"
-              >
-              <button 
-                onclick="copyLink('viewerLink')" 
-                class="copy-btn" 
-                aria-label="کپی لینک بیننده"
-                data-tooltip="کپی لینک بیننده"
-              >
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M8 2a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2V6l-3-3H8zm0 1h5l2 2v9H8V3zm-1 2H6a2 2 0 00-2 2v10a2 2 0 002 2h6v-2H6V7h1V5z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="link-card">
-            <label for="directorLink" class="link-label block font-medium mb-2">لینک مدیر</label>
-            <div class="flex items-center gap-2">
-              <input 
-                type="text" 
-                id="directorLink" 
-                class="link-input" 
-                readonly 
-                aria-label="لینک مدیر"
-              >
-              <button 
-                onclick="copyLink('directorLink')" 
-                class="copy-btn" 
-                aria-label="کپی لینک مدیر"
-                data-tooltip="کپی لینک مدیر"
-              >
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M8 2a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2V6l-3-3H8zm0 1h5l2 2v9H8V3zm-1 2H6a2 2 0 00-2 2v10a2 2 0 002 2h6v-2H6V7h1V5z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="link-card">
-            <label for="obsLink" class="link-label block font-medium mb-2">لینک مخصوص OBS</label>
-            <div class="flex items-center gap-2">
-              <input 
-                type="text" 
-                id="obsLink" 
-                class="link-input" 
-                readonly 
-                aria-label="لینک OBS"
-              >
-              <button 
-                onclick="copyLink('obsLink')" 
-                class="copy-btn" 
-                aria-label="کپی لینک OBS"
-                data-tooltip="کپی لینک OBS"
-              >
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M8 2a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2V6l-3-3H8zm0 1h5l2 2v9H8V3zm-1 2H6a2 2 0 00-2 2v10a2 2 0 002 2h6v-2H6V7h1V5z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-        <p id="copyMessage" class="mt-2 text-sm text-green-500 dark:text-green-400 hidden" role="alert">لینک با موفقیت کپی شد!</p>
-        <p id="errorMessage" class="mt-2 text-sm text-red-500 dark:text-red-400 hidden" role="alert"></p>
-      </section>
-    </main>
-
-    <footer class="mt-8 text-center text-gray-600 dark:text-gray-400 text-sm">
-      <p>© 2025 <a href="https://remotevm.site" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">RemoteVM</a> -- <a href="https://about.remotevm.ir/" target="_blank" class="text-blue-600 dark:text-blue-400">R.V.M</a>. تمامی حقوق محفوظ است.</p>
-    </footer>
-  </div>
-
-  <script>
-    // State management
-    let state = {
-      isCallActive: false,
-      isMuted: false,
-      obsLink: '',
-      hostLink: '',
-      viewerLink: '',
-      directorLink: '',
-      isLoading: false,
-      roomId: '',
-      password: '',
-      streamId: 'server',
-      peerStreamId: 'client'
-    };
-
-    // DOM elements
-    const elements = {
-      obsLinkInput: document.getElementById('obsLink'),
-      hostLinkInput: document.getElementById('hostLink'),
-      viewerLinkInput: document.getElementById('viewerLink'),
-      directorLinkInput: document.getElementById('directorLink'),
-      linksSection: document.getElementById('linksSection'),
-      stopCallButton: document.getElementById('stopCallButton'),
-      resetButton: document.getElementById('resetButton'),
-      startCallBtn: document.getElementById('startCallBtn'),
-      muteButton: document.getElementById('muteButton'),
-      shareButton: document.getElementById('shareButton'),
-      loader: document.getElementById('loader'),
-      qualitySelect: document.getElementById('qualitySelect'),
-      copyMessage: document.getElementById('copyMessage'),
-      errorMessage: document.getElementById('errorMessage'),
-      statusIndicator: document.getElementById('statusIndicator'),
-      themeToggle: document.getElementById('themeToggle'),
-      themeIcon: document.getElementById('themeIcon'),
-      overlay: document.getElementById('overlay'),
-      roomIdInput: document.getElementById('roomIdInput'),
-      passwordInput: document.getElementById('passwordInput')
-    };
-
-    // Utility functions
-    const debounce = (func, wait) => {
-      let timeout;
-      return (...args) => {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), wait);
-      };
-    };
-
-    const showMessage = (message, type) => {
-      const messageElement = type === 'success' ? elements.copyMessage : elements.errorMessage;
-      messageElement.textContent = message;
-      messageElement.classList.remove('hidden');
-      setTimeout(() => messageElement.classList.add('hidden'), 2000);
-    };
-
-    const toggleLoader = (show) => {
-      state.isLoading = show;
-      elements.loader.classList.toggle('hidden', !show);
-      elements.startCallBtn.disabled = show;
-    };
-
-    const updateStatusIndicator = () => {
-      elements.statusIndicator.classList.toggle('status-active', state.isCallActive);
-      elements.statusIndicator.classList.toggle('status-inactive', !state.isCallActive);
-    };
-
-    // Theme toggle function
-    const updateThemeIcon = () => {
-      const isDark = document.body.classList.contains('dark');
-      elements.themeIcon.innerHTML = isDark
-        ? '<path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12zm-1-6a1 1 0 112 0 1 1 0 01-2 0z"/>'
-        : '<path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>';
-    };
-
-    // Overlay animation
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        elements.overlay.classList.add('hidden');
-      }, 1200);
-    });
-
-    // Validate input
-    const validateInput = (input, fieldName) => {
-      const regex = /^[a-zA-Z0-9_-]{1,31}$/;
-      if (!input || !regex.test(input)) {
-        showMessage(`لطفاً ${fieldName} معتبر وارد کنید (فقط حروف، اعداد، خط تیره و زیرخط، حداکثر 31 کاراکتر)`, 'error');
-        return false;
-      }
-      return true;
-    };
-
-    // Copy link
-    async function copyLink(linkId) {
-      const linkInput = document.getElementById(linkId);
-      if (!linkInput.value) {
-        showMessage('لینکی برای کپی وجود ندارد!', 'error');
-        return;
-      }
-
-      try {
-        await navigator.clipboard.writeText(linkInput.value);
-        showMessage('لینک با موفقیت کپی شد!', 'success');
-      } catch {
-        linkInput.select();
-        try {
-          document.execCommand('copy');
-          showMessage('لینک با موفقیت کپی شد!', 'success');
-        } catch {
-          showMessage('خطا در کپی لینک!', 'error');
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>استودیو کنفرانس پیشرفته - RemoteVM</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;800&display=swap');
+        :root {
+            --dark-bg: linear-gradient(135deg, #020412 0%, #0d0d2b 100%);
+            --light-bg: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            --dark-text: #e2e8f0;
+            --light-text: #1e293b;
+            --neon-blue: #00bfff;
+            --neon-pink: #ff00c8;
+            --neon-purple: #a45eff;
+            --neon-green: #39ff14;
+            --anim-speed-fast: 1.5s;
         }
-      }
-    }
-
-    // Main functions
-    async function startVDOCall() {
-      if (state.isCallActive || state.isLoading) return;
-
-      const roomId = elements.roomIdInput.value.trim() || 'room' + Math.random().toString(36).substr(2, 8);
-      const password = elements.passwordInput.value.trim();
-      const streamId = 'server';
-      const peerStreamId = 'client';
-
-      if (!validateInput(roomId, 'نام اتاق')) return;
-      if (!validateInput(password, 'رمز عبور')) return;
-
-      try {
-        toggleLoader(true);
-        state.isCallActive = true;
-        state.roomId = roomId;
-        state.password = password;
-        state.streamId = streamId;
-        state.peerStreamId = peerStreamId;
-        elements.startCallBtn.disabled = true;
-        elements.muteButton.classList.remove('hidden');
-        elements.shareButton.classList.remove('hidden');
-
-        const quality = elements.qualitySelect.value;
-        let resolution;
-        switch (quality) {
-          case "480":
-            resolution = "&width=854&height=480";
-            break;
-          case "1080":
-            resolution = "&width=1920&height=1080";
-            break;
-          default:
-            resolution = "&width=1280&height=720";
-        }
-
-        // Host link (for server)
-        state.hostLink = `https://live.remotevm.ir/?room=${roomId}&password=${password}&broadcast&proaudio=1&push=${streamId}&clean${resolution}`;
-        // Viewer link (for client to view server)
-        state.viewerLink = `https://live.remotevm.ir/?view=${streamId}&solo&room=${roomId}&password=${password}&proaudio&clean${resolution}`;
-        // Director link
-        state.directorLink = `https://live.remotevm.ir/?director=${roomId}&password=${password}`;
-        // OBS link (for viewing server)
-        state.obsLink = `https://live.remotevm.ir/?view=${streamId}&solo&room=${roomId}&password=${password}&proaudio&clean${resolution}`;
-
-        elements.hostLinkInput.value = state.hostLink;
-        elements.viewerLinkInput.value = state.viewerLink;
-        elements.directorLinkInput.value = state.directorLink;
-        elements.obsLinkInput.value = state.obsLink;
-        elements.linksSection.classList.remove('hidden');
-        elements.stopCallButton.classList.remove('hidden');
-        elements.resetButton.classList.remove('hidden');
         
-        updateStatusIndicator();
-        showMessage('اتاق تماس با موفقیت ایجاد شد', 'success');
-      } catch (error) {
-        showMessage('خطا در ایجاد تماس: ' + error.message, 'error');
-        resetPage();
-      } finally {
-        toggleLoader(false);
-      }
-    }
+        /* Base Styles */
+        body { 
+            background: var(--dark-bg); 
+            font-family: 'Vazirmatn', sans-serif; 
+            color: var(--dark-text); 
+            transition: background 0.5s;
+        }
+        body.light-mode {
+            background: var(--light-bg);
+            color: var(--light-text);
+        }
+        .container { 
+            position: relative; 
+            overflow: hidden; 
+            background: rgba(10, 10, 26, 0.6); 
+            backdrop-filter: blur(16px); 
+            border: 1px solid rgba(0, 191, 255, 0.2); 
+            border-radius: 20px; 
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s;
+        }
+        .light-mode .container {
+            background: rgba(240, 240, 250, 0.7);
+            border: 1px solid rgba(0, 128, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        h1 { 
+            font-size: 2.5rem; 
+            font-weight: 800; 
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink)); 
+            -webkit-background-clip: text; 
+            background-clip: text; 
+            color: transparent; 
+            text-shadow: 0 0 15px rgba(0, 191, 255, 0.2); 
+        }
+        
+        /* Form Inputs */
+        input[type="text"], 
+        input[type="password"],
+        select { 
+            color: var(--dark-text); 
+            background-color: rgba(10, 10, 26, 0.7); 
+            border: 1px solid transparent; 
+            border-image: linear-gradient(90deg, var(--neon-blue), var(--neon-pink)) 1; 
+            border-radius: 8px; 
+            padding: 10px; 
+            box-shadow: inset 0 0 8px rgba(0, 191, 255, 0.2); 
+            transition: all 0.3s ease; 
+        }
+        .light-mode input[type="text"], 
+        .light-mode input[type="password"],
+        .light-mode select { 
+            color: var(--light-text); 
+            background-color: rgba(240, 240, 250, 0.7);
+            box-shadow: inset 0 0 8px rgba(0, 128, 255, 0.1);
+        }
+        input:focus,
+        select:focus { 
+            outline: none; 
+            box-shadow: 0 0 10px var(--neon-pink), inset 0 0 8px rgba(255, 0, 200, 0.3); 
+        }
+        
+        /* Buttons */
+        .btn { 
+            position: relative; 
+            overflow: hidden; 
+            background: rgba(70, 70, 70, 0.4); 
+            color: #fff; 
+            border: 1px solid rgba(0, 191, 255, 0.2); 
+            border-radius: 8px; 
+            padding: 12px 24px; 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center; 
+            text-decoration: none; 
+            transition: all 0.3s ease; 
+        }
+        .light-mode .btn {
+            background: rgba(100, 100, 100, 0.2);
+            color: var(--light-text);
+            border: 1px solid rgba(0, 128, 255, 0.2);
+        }
+        .btn:hover { 
+            background: rgba(46, 66, 66, 0.6); 
+            transform: translateY(-2px); 
+            box-shadow: 0 0 15px rgba(0, 191, 255, 0.3); 
+        }
+        .light-mode .btn:hover {
+            background: rgba(100, 120, 140, 0.3);
+            box-shadow: 0 0 15px rgba(0, 128, 255, 0.2);
+        }
+        
+        /* Animations */
+        @keyframes animate-top { 0% { left: -100%; } 100% { left: 100%; } }
+        @keyframes animate-right { 0% { top: -100%; } 100% { top: 100%; } }
+        @keyframes animate-bottom { 0% { right: -100%; } 100% { right: 100%; } }
+        @keyframes animate-left { 0% { bottom: -100%; } 100% { bottom: 100%; } }
+        @keyframes pulse {
+            0% { opacity: 0.5; transform: scale(0.95); }
+            50% { opacity: 1; transform: scale(1.05); }
+            100% { opacity: 0.5; transform: scale(0.95); }
+        }
+        
+        /* Button Effects */
+        .btn-primary .border-line-blue { position: absolute; display: block; opacity: 0; }
+        .btn-primary:hover .border-line-blue { opacity: 1; }
+        .btn-primary .border-line-blue:nth-child(1) { top: 0; left: -100%; width: 100%; height: 2px; background: linear-gradient(90deg, transparent, var(--neon-blue)); }
+        .btn-primary:hover .border-line-blue:nth-child(1) { animation: animate-top var(--anim-speed-fast) linear infinite; }
+        .btn-primary .border-line-blue:nth-child(2) { top: -100%; right: 0; width: 2px; height: 100%; background: linear-gradient(180deg, transparent, var(--neon-blue)); }
+        .btn-primary:hover .border-line-blue:nth-child(2) { animation: animate-right var(--anim-speed-fast) linear infinite; animation-delay: 0.375s; }
+        .btn-primary .border-line-blue:nth-child(3) { bottom: 0; right: -100%; width: 100%; height: 2px; background: linear-gradient(270deg, transparent, var(--neon-blue)); }
+        .btn-primary:hover .border-line-blue:nth-child(3) { animation: animate-bottom var(--anim-speed-fast) linear infinite; animation-delay: 0.75s; }
+        .btn-primary .border-line-blue:nth-child(4) { bottom: -100%; left: 0; width: 2px; height: 100%; background: linear-gradient(360deg, transparent, var(--neon-blue)); }
+        .btn-primary:hover .border-line-blue:nth-child(4) { animation: animate-left var(--anim-speed-fast) linear infinite; animation-delay: 1.125s; }
+        
+        /* Status Indicators */
+        .status-indicator { 
+            width: 12px; 
+            height: 12px; 
+            border-radius: 50%; 
+            display: inline-block; 
+            margin-left: 8px; 
+        }
+        .status-active { 
+            background: var(--neon-green); 
+            box-shadow: 0 0 10px var(--neon-green);
+            animation: pulse 2s infinite;
+        }
+        .status-inactive { background: #ff4444; }
+        
+        /* Overlay */
+        .overlay { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100vw; 
+            height: 100vh; 
+            background: var(--dark-bg); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 10000; 
+            opacity: 1; 
+            transition: opacity 0.7s ease; 
+        }
+        .overlay.hidden { opacity: 0; pointer-events: none; }
+        .zoom-text { 
+            font-size: 4rem; 
+            font-weight: bold; 
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink)); 
+            background-clip: text; 
+            color: transparent; 
+        }
+        
+        /* Tooltips */
+        .tooltip {
+            position: relative;
+            cursor: help;
+        }
+        .tooltip:hover::after { 
+            content: attr(data-tooltip); 
+            position: absolute; 
+            bottom: 125%; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: rgba(10, 10, 26, 0.95); 
+            padding: 6px 12px; 
+            border-radius: 5px; 
+            font-size: 12px; 
+            white-space: nowrap; 
+            z-index: 10; 
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        .light-mode .tooltip:hover::after {
+            background: rgba(240, 240, 250, 0.95);
+            color: var(--light-text);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Toggle Switch */
+        .toggle-switch { display: inline-block; position: relative; width: 57px; height: 27px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-switch .slider { 
+            position: absolute; 
+            cursor: pointer; 
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            bottom: 0; 
+            background-color: rgba(10, 10, 26, 0.7); 
+            border: 1px solid var(--neon-blue); 
+            border-radius: 30px; 
+            transition: .4s; 
+        }
+        .light-mode .toggle-switch .slider {
+            background-color: rgba(200, 200, 230, 0.5);
+        }
+        .toggle-switch .slider:before { 
+            position: absolute; 
+            content: ""; 
+            height: 20px; 
+            width: 20px; 
+            left: 3px; 
+            bottom: 3px; 
+            background-color: rgb(107, 124, 124); 
+            border-radius: 50%; 
+            transition: .4s; 
+        }
+        .light-mode .toggle-switch .slider:before {
+            background-color: #f8fafc;
+        }
+        .toggle-switch input:checked + .slider { 
+            background-color: rgba(57, 255, 20, 0.3); 
+            border-color: var(--neon-green); 
+            box-shadow: 0 0 10px var(--neon-green); 
+        }
+        .toggle-switch input:checked + .slider:before { 
+            transform: translateX(29px); 
+            background-color: greenyellow; 
+        }
+        
+        /* iFrame Container */
+        #iframe-container { 
+            position: relative; 
+            overflow: hidden; 
+            border: 1px solid rgba(0, 191, 255, 0.2); 
+            border-radius: 0.5rem; 
+            background: #000; 
+            width: 100%;
+            aspect-ratio: 16/9;
+            min-height: 320px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #vdoFrame {
+            width: 100%;
+            height: 100%;
+            min-height: 320px;
+            border: none;
+            border-radius: 0.5rem;
+            background: #000;
+            display: block;
+        }
+        
+        /* Validation */
+        .input-error { border-image: linear-gradient(90deg, #ff4444, #ff00c8) 1 !important; }
+        .error-message { color: #ff4444; font-size: 0.8rem; height: 1.2rem; transition: all 0.3s; }
+        
+        /* Timer */
+        .session-timer {
+            font-family: monospace;
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 0.5rem;
+            background: rgba(10, 10, 26, 0.6);
+            border-radius: 0.5rem;
+            display: inline-block;
+        }
+        .light-mode .session-timer {
+            background: rgba(240, 240, 250, 0.6);
+            color: var(--light-text);
+        }
+        
+        /* Network Status */
+        .network-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            background: rgba(10, 10, 26, 0.6);
+        }
+        .light-mode .network-status {
+            background: rgba(240, 240, 250, 0.6);
+        }
+        .signal-strength {
+            display: flex;
+            gap: 2px;
+        }
+        .signal-bar {
+            width: 3px;
+            height: 12px;
+            background-color: var(--neon-green);
+            border-radius: 1px;
+        }
+        .signal-bar.inactive {
+            background-color: rgba(57, 255, 20, 0.2);
+        }
+        
+        /* Settings Badge */
+        .settings-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--neon-pink);
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        /* Tabs */
+        .tab-buttons {
+            display: flex;
+            border-bottom: 1px solid rgba(164, 94, 255, 0.3);
+            margin-bottom: 1rem;
+        }
+        .tab-button {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        .tab-button.active {
+            border-bottom: 2px solid var(--neon-purple);
+            color: var(--neon-purple);
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            #iframe-container {
+                width: 100vw;
+                min-width: 100vw;
+                max-width: 100vw;
+                aspect-ratio: 6/19;
+                min-height: 180px;
+                height: 100vh;
+                max-height: 100vh;
+                border-radius: 0;
+            }
+            #vdoFrame {
+                width: 100vw;
+                min-width: 100vw;
+                max-width: 100vw;
+                aspect-ratio: 6/19;
+                min-height: 180px;
+                height: 100vh;
+                max-height: 100vh;
+                border-radius: 0;
+                background: #000;
+                display: block;
+            }
+            body {
+                padding: 0 !important;
+            }
+            .container {
+                padding: 0.5rem !important;
+                border-radius: 0;
+            }
+            h1 {
+                font-size: 1.4rem;
+            }
+            .settings-columns {
+                flex-direction: column;
+            }
+            .tab-buttons {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div id="overlay" class="overlay">
+        <div class="flex flex-col items-center justify-center">
+            <span class="zoom-text">RemoteVM</span>
+            <div class="mt-4 text-center">
+                <p class="mb-2 text-lg">سیستم کنفرانس آنلاین پیشرفته</p>
+                <div class="flex justify-center space-x-4 space-x-reverse">
+                    <div class="flex items-center justify-center w-10 h-10 rounded-full bg-purple-500/30 animate-pulse">
+                        <i class="fas fa-video"></i>
+                    </div>
+                    <div class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500/30 animate-pulse" style="animation-delay: 0.2s">
+                        <i class="fas fa-microphone"></i>
+                    </div>
+                    <div class="flex items-center justify-center w-10 h-10 rounded-full bg-green-500/30 animate-pulse" style="animation-delay: 0.4s">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="appContainer" class="container mx-auto p-6 max-w-2xl w-full">
+        <header class="flex justify-between items-center mb-6">
+            <div class="flex items-center">
+                <h1 id="mainTitle" class="text-3xl font-bold">استودیو کنفرانس</h1>
+                <span id="statusIndicator" class="status-indicator status-inactive mr-2"></span>
+            </div>
+            <div class="flex items-center gap-4">
+                <button id="themeToggle" class="btn p-2" title="تغییر تم">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button id="helpButton" class="btn p-2" title="راهنما">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+            </div>
+        </header>
+        
+        <main>
+            <!-- بخش ایجاد اتاق -->
+            <section id="roomCreationSection">
+                <div class="space-y-6">
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <div class="flex-1">
+                            <label for="roomNameInput" class="block font-medium mb-2">نام اتاق (فقط حروف انگلیسی)</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="roomNameInput" class="w-full" placeholder="مثال: my-awesome-webinar">
+                                <button id="generateRoomNameBtn" class="btn p-2 tooltip" data-tooltip="تولید نام تصادفی">
+                                    <i class="fas fa-dice"></i>
+                                </button>
+                            </div>
+                            <p id="roomNameError" class="error-message"></p>
+                        </div>
+                        <div class="flex-1">
+                            <label for="roomPasswordInput" class="block font-medium mb-2">رمز عبور اتاق (اختیاری)</label>
+                            <div class="flex gap-2">
+                                <input type="password" id="roomPasswordInput" class="w-full" placeholder="برای امنیت بیشتر">
+                                <button id="generatePasswordBtn" class="btn p-2 tooltip" data-tooltip="تولید رمز تصادفی">
+                                    <i class="fas fa-key"></i>
+                                </button>
+                            </div>
+                            <p id="roomPasswordError" class="error-message"></p>
+                        </div>
+                    </div>
+                    
+                    <details class="p-4 rounded-lg border border-dashed border-purple-500/50" id="advancedSettingsDetails">
+                        <summary class="font-bold text-lg cursor-pointer flex items-center justify-between">
+                            <span>تنظیمات پیشرفته</span>
+                            <span class="settings-badge hidden" id="settingsBadge">!</span>
+                        </summary>
+                        
+                        <div class="mt-4 pt-4 border-t border-purple-500/30">
+                            <!-- تب‌های تنظیمات -->
+                            <div class="tab-buttons">
+                                <div class="tab-button active" data-tab="audio-video">صدا و تصویر</div>
+                                <div class="tab-button" data-tab="security">امنیت</div>
+                                <div class="tab-button" data-tab="layout">چیدمان</div>
+                                <div class="tab-button" data-tab="other">سایر</div>
+                            </div>
+                            
+                            <!-- محتوای تب‌ها -->
+                            <div class="tab-content active" id="audio-video">
+                                <div class="space-y-4 settings-columns flex flex-col md:flex-row md:space-x-4 md:space-x-reverse">
+                                    <div class="md:w-1/2 space-y-4">
+                                        <div class="flex items-center justify-between">
+                                            <span class="tooltip" data-tooltip="کیفیت صدای بهتر">صدای حرفه‌ای</span>
+                                            <label class="toggle-switch"><input type="checkbox" id="proaudio-toggle"><span class="slider"></span></label>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="tooltip" data-tooltip="بدون ارسال تصویر">فقط صدا</span>
+                                            <label class="toggle-switch"><input type="checkbox" id="audioonly-toggle"><span class="slider"></span></label>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="tooltip" data-tooltip="ورود با میکروفون خاموش">میکروفون خاموش</span>
+                                            <label class="toggle-switch"><input type="checkbox" id="mute-toggle"><span class="slider"></span></label>
+                                        </div>
+                                    </div>
+                                    <div class="md:w-1/2 space-y-4">
+                                        <div class="flex items-center justify-between">
+                                            <span class="tooltip" data-tooltip="کیفیت ویدیو">رزولوشن ویدیو</span>
+                                            <select id="resolution-select" class="w-32">
+                                                <option value="">پیش‌فرض</option>
+                                                <option value="HD">HD (720p)</option>
+                                                <option value="FHD">Full HD (1080p)</option>
+                                                <option value="4K">4K</option>
+                                            </select>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="tooltip" data-tooltip="نرخ فریم ویدیو">نرخ فریم</span>
+                                            <select id="framerate-select" class="w-32">
+                                                <option value="">پیش‌فرض</option>
+                                                <option value="30">30 FPS</option>
+                                                <option value="60">60 FPS</option>
+                                            </select>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="tooltip" data-tooltip="حالت مصرف کمتر اینترنت">حالت کم‌مصرف</span>
+                                            <label class="toggle-switch"><input type="checkbox" id="lowdata-toggle"><span class="slider"></span></label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="tab-content" id="security">
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="تنها مدیر می‌تواند تصویر ارسال کند">فقط مدیر تصویر دارد</span>
+                                        <label class="toggle-switch"><input type="checkbox" id="solo-toggle"><span class="slider"></span></label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="مهمان‌ها با میکروفون خاموش وارد می‌شوند">میکروفون مهمان‌ها خاموش</span>
+                                        <label class="toggle-switch"><input type="checkbox" id="muteall-toggle"><span class="slider"></span></label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="کد ورود را هر ساعت تغییر می‌دهد">تعویض خودکار رمز</span>
+                                        <label class="toggle-switch"><input type="checkbox" id="autopass-toggle"><span class="slider"></span></label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="ثبت ورود و خروج کاربران">ثبت رویدادها</span>
+                                        <label class="toggle-switch"><input type="checkbox" id="logging-toggle"><span class="slider"></span></label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="tab-content" id="layout">
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="حالت ارائه اسلاید با تصویر بزرگ">حالت ارائه</span>
+                                        <label class="toggle-switch"><input type="checkbox" id="present-toggle"><span class="slider"></span></label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="اشتراک صفحه نمایش">اشتراک صفحه</span>
+                                        <label class="toggle-switch"><input type="checkbox" id="screen-toggle"><span class="slider"></span></label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="نمایش همه تصاویر بصورت یکسان">نمایش شبکه‌ای</span>
+                                        <label class="toggle-switch"><input type="checkbox" id="grid-toggle"><span class="slider"></span></label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="تعداد افراد قابل نمایش همزمان">تعداد نمایش همزمان</span>
+                                        <select id="maxviewers-select" class="w-32">
+                                            <option value="">نامحدود</option>
+                                            <option value="4">4 نفر</option>
+                                            <option value="9">9 نفر</option>
+                                            <option value="16">16 نفر</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="tab-content" id="other">
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="ایجاد لینک برای نمایش پیام‌ها">ارسال پیام</span>
+                                        <label class="toggle-switch"><input type="checkbox" id="broadcast-toggle"><span class="slider"></span></label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="ضبط جلسه بصورت خودکار">ضبط خودکار</span>
+                                        <label class="toggle-switch"><input type="checkbox" id="record-toggle"><span class="slider"></span></label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="بدون چت گروهی">بدون چت</span>
+                                        <label class="toggle-switch"><input type="checkbox" id="nochat-toggle"><span class="slider"></span></label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="پخش اعلان صوتی ورود و خروج">اعلان‌های صوتی</span>
+                                        <label class="toggle-switch"><input type="checkbox" id="sounds-toggle"><span class="slider"></span></label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                    
+                    <button id="createRoomBtn" class="btn btn-primary w-full py-3 text-lg">
+                        <span class="border-line-blue"></span><span class="border-line-blue"></span><span class="border-line-blue"></span><span class="border-line-blue"></span>
+                        ایجاد و ورود به پنل مدیریت
+                    </button>
+                </div>
+            </section>
+            
+            <!-- بخش داخل جلسه -->
+            <section id="inCallSection" class="hidden">
+                <div class="space-y-6">
+                    <div class="flex flex-wrap justify-between items-center mb-4">
+                        <div class="session-timer" id="session-timer">00:00:00</div>
+                        <div class="flex items-center gap-2">
+                            <div class="network-status">
+                                <span id="network-quality">اتصال: </span>
+                                <div class="signal-strength">
+                                    <div class="signal-bar"></div>
+                                    <div class="signal-bar"></div>
+                                    <div class="signal-bar"></div>
+                                    <div class="signal-bar"></div>
+                                </div>
+                            </div>
+                            <div id="participants-count" class="p-2 bg-purple-500/30 rounded-lg">
+                                <i class="fas fa-users"></i> <span id="participant-number">1</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 rounded-lg border border-dashed border-cyan-500/50 space-y-4">
+                        <div>
+                            <label class="block font-medium text-cyan-300">لینک دعوت برای شرکت‌کنندگان:</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="guestLinkInput" class="w-full" readonly>
+                                <button id="copyGuestLinkBtn" class="btn p-3 tooltip" data-tooltip="کپی لینک">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                <button id="shareGuestLinkBtn" class="btn p-3 tooltip" data-tooltip="اشتراک‌گذاری">
+                                    <i class="fas fa-share-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="broadcastContainer" class="hidden">
+                            <label class="block font-medium text-cyan-300">لینک نمایش پیام‌ها (برای OBS):</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="broadcastLinkInput" class="w-full" readonly>
+                                <button id="copyBroadcastLinkBtn" class="btn p-3 tooltip" data-tooltip="کپی لینک">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p id="copyMessage" class="text-sm text-green-400 h-5 text-center" role="alert"></p>
+                    
+                    <div id="iframe-container" class="w-full">
+                        <iframe id="vdoFrame" allow="camera; microphone; autoplay; display-capture; fullscreen"></iframe>
+                    </div>
+                    
+                    <div class="flex flex-wrap gap-2 justify-center">
+                        <button id="muteAudioBtn" class="btn py-2 px-4">
+                            <i class="fas fa-microphone-slash mr-2"></i> قطع صدا
+                        </button>
+                        <button id="stopVideoBtn" class="btn py-2 px-4">
+                            <i class="fas fa-video-slash mr-2"></i> قطع تصویر
+                        </button>
+                        <button id="shareScreenBtn" class="btn py-2 px-4">
+                            <i class="fas fa-desktop mr-2"></i> اشتراک صفحه
+                        </button>
+                        <button id="recordBtn" class="btn py-2 px-4">
+                            <i class="fas fa-record-vinyl mr-2"></i> ضبط
+                        </button>
+                    </div>
+                    
+                    <button id="endCallBtn" class="btn w-full py-3 text-lg bg-red-700 hover:bg-red-800">
+                        <i class="fas fa-phone-slash mr-2"></i> خروج و ساخت اتاق جدید
+                    </button>
+                </div>
+            </section>
+        </main>
+        
+        <!-- مودال راهنما -->
+        <div id="helpModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+            <div class="bg-gray-900 p-6 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold">راهنمای استفاده</h3>
+                    <button id="closeHelpBtn" class="btn p-2">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <h4 class="font-bold mb-2">ایجاد اتاق کنفرانس</h4>
+                        <p>برای ایجاد اتاق کنفرانس، یک نام انگلیسی برای اتاق وارد کنید. می‌توانید از دکمه تاس برای تولید نام تصادفی استفاده کنید.</p>
+                    </div>
+                    <div>
+                        <h4 class="font-bold mb-2">تنظیمات پیشرفته</h4>
+                        <p>در بخش تنظیمات پیشرفته می‌توانید کیفیت صدا و تصویر، امنیت، چیدمان و سایر تنظیمات را شخصی‌سازی کنید.</p>
+                    </div>
+                    <div>
+                        <h4 class="font-bold mb-2">دعوت شرکت‌کنندگان</h4>
+                        <p>پس از ایجاد اتاق، لینک دعوت برای شرکت‌کنندگان را کپی کرده و با آن‌ها به اشتراک بگذارید.</p>
+                    </div>
+                    <div>
+                        <h4 class="font-bold mb-2">کنترل‌های داخل جلسه</h4>
+                        <p>در حین جلسه می‌توانید میکروفون و دوربین را کنترل کنید، صفحه خود را به اشتراک بگذارید یا جلسه را ضبط کنید.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    function stopVDOCall() {
-      if (!state.isCallActive) return;
-      
-      state.isCallActive = false;
-      state.isMuted = false;
-      state.obsLink = '';
-      state.hostLink = '';
-      state.viewerLink = '';
-      state.directorLink = '';
-      state.roomId = '';
-      state.password = '';
-      state.streamId = '';
-      state.peerStreamId = '';
-      
-      elements.linksSection.classList.add('hidden');
-      elements.stopCallButton.classList.add('hidden');
-      elements.muteButton.classList.add('hidden');
-      elements.shareButton.classList.add('hidden');
-      elements.resetButton.classList.add('hidden');
-      elements.startCallBtn.disabled = false;
-      
-      updateStatusIndicator();
-      showMessage('تماس با موفقیت متوقف شد', 'success');
-    }
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- تعریف المان‌ها ---
+    const elements = {
+        appContainer: document.getElementById('appContainer'),
+        roomCreationSection: document.getElementById('roomCreationSection'),
+        inCallSection: document.getElementById('inCallSection'),
+        createRoomBtn: document.getElementById('createRoomBtn'),
+        endCallBtn: document.getElementById('endCallBtn'),
+        roomNameInput: document.getElementById('roomNameInput'),
+        roomPasswordInput: document.getElementById('roomPasswordInput'),
+        roomNameError: document.getElementById('roomNameError'),
+        roomPasswordError: document.getElementById('roomPasswordError'),
+        guestLinkInput: document.getElementById('guestLinkInput'),
+        copyGuestLinkBtn: document.getElementById('copyGuestLinkBtn'),
+        shareGuestLinkBtn: document.getElementById('shareGuestLinkBtn'),
+        broadcastContainer: document.getElementById('broadcastContainer'),
+        broadcastLinkInput: document.getElementById('broadcastLinkInput'),
+        copyBroadcastLinkBtn: document.getElementById('copyBroadcastLinkBtn'),
+        proaudioToggle: document.getElementById('proaudio-toggle'),
+        broadcastToggle: document.getElementById('broadcast-toggle'),
+        audioonlyToggle: document.getElementById('audioonly-toggle'),
+        muteToggle: document.getElementById('mute-toggle'),
+        lowdataToggle: document.getElementById('lowdata-toggle'),
+        recordToggle: document.getElementById('record-toggle'),
+        nochatToggle: document.getElementById('nochat-toggle'),
+        soloToggle: document.getElementById('solo-toggle'),
+        muteallToggle: document.getElementById('muteall-toggle'),
+        presentToggle: document.getElementById('present-toggle'),
+        screenToggle: document.getElementById('screen-toggle'),
+        gridToggle: document.getElementById('grid-toggle'),
+        soundsToggle: document.getElementById('sounds-toggle'),
+        autopassToggle: document.getElementById('autopass-toggle'),
+        loggingToggle: document.getElementById('logging-toggle'),
+        resolutionSelect: document.getElementById('resolution-select'),
+        framerateSelect: document.getElementById('framerate-select'),
+        maxviewersSelect: document.getElementById('maxviewers-select'),
+        vdoFrame: document.getElementById('vdoFrame'),
+        mainTitle: document.getElementById('mainTitle'),
+        statusIndicator: document.getElementById('statusIndicator'),
+        copyMessage: document.getElementById('copyMessage'),
+        overlay: document.getElementById('overlay'),
+        themeToggle: document.getElementById('themeToggle'),
+        helpButton: document.getElementById('helpButton'),
+        helpModal: document.getElementById('helpModal'),
+        closeHelpBtn: document.getElementById('closeHelpBtn'),
+        sessionTimer: document.getElementById('session-timer'),
+        networkQuality: document.getElementById('network-quality'),
+        participantNumber: document.getElementById('participant-number'),
+        signalBars: document.querySelectorAll('.signal-bar'),
+        settingsBadge: document.getElementById('settingsBadge'),
+        advancedSettingsDetails: document.getElementById('advancedSettingsDetails'),
+        tabButtons: document.querySelectorAll('.tab-button'),
+        tabContents: document.querySelectorAll('.tab-content'),
+        generateRoomNameBtn: document.getElementById('generateRoomNameBtn'),
+        generatePasswordBtn: document.getElementById('generatePasswordBtn'),
+        muteAudioBtn: document.getElementById('muteAudioBtn'),
+        stopVideoBtn: document.getElementById('stopVideoBtn'),
+        shareScreenBtn: document.getElementById('shareScreenBtn'),
+        recordBtn: document.getElementById('recordBtn')
+    };
 
-    function resetPage() {
-      state.isCallActive = false;
-      state.isMuted = false;
-      state.obsLink = '';
-      state.hostLink = '';
-      state.viewerLink = '';
-      state.directorLink = '';
-      state.roomId = '';
-      state.password = '';
-      state.streamId = '';
-      state.peerStreamId = '';
-      
-      elements.linksSection.classList.add('hidden');
-      elements.stopCallButton.classList.add('hidden');
-      elements.muteButton.classList.add('hidden');
-      elements.shareButton.classList.add('hidden');
-      elements.resetButton.classList.add('hidden');
-      elements.obsLinkInput.value = '';
-      elements.hostLinkInput.value = '';
-      elements.viewerLinkInput.value = '';
-      elements.directorLinkInput.value = '';
-      elements.roomIdInput.value = '';
-      elements.passwordInput.value = '';
-      elements.qualitySelect.value = '720';
-      elements.startCallBtn.disabled = false;
-      
-      updateStatusIndicator();
-      showMessage('صفحه با موفقیت ریست شد', 'success');
-    }
+    // --- متغیرهای نگهداری وضعیت ---
+    let sessionStartTime = null;
+    let sessionTimer = null;
+    let activeSettings = {};
+    
+    // --- توابع کمکی ---
+    const generateId = (length = 6) => Math.random().toString(36).substring(2, length + 2);
+    
+    const showCopyMessage = (message) => {
+        elements.copyMessage.textContent = message;
+        setTimeout(() => { elements.copyMessage.textContent = ''; }, 3000);
+    };
+    
+    const updateStatus = (isActive) => {
+        elements.statusIndicator.classList.toggle('status-active', isActive);
+        elements.roomCreationSection.classList.toggle('hidden', isActive);
+        elements.inCallSection.classList.toggle('hidden', !isActive);
+        
+        if(isActive) {
+            elements.appContainer.classList.add('max-w-7xl');
+            elements.appContainer.classList.remove('max-w-2xl');
+            startSessionTimer();
+            simulateNetworkStatus();
+        } else {
+            elements.appContainer.classList.remove('max-w-7xl');
+            elements.appContainer.classList.add('max-w-2xl');
+            stopSessionTimer();
+        }
+        
+        setTimeout(() => {
+            if (elements.vdoFrame) {
+                elements.vdoFrame.style.width = "100%";
+                elements.vdoFrame.style.height = "100%";
+            }
+        }, 300);
+    };
+    
+    const copyToClipboard = async (inputElement, successMessage) => {
+        try {
+            await navigator.clipboard.writeText(inputElement.value);
+            showCopyMessage(successMessage);
+        } catch (err) {
+            alert('خطا در کپی کردن لینک.');
+        }
+    };
 
-    async function shareRoomLink() {
-      elements.linksSection.classList.toggle('hidden');
-    }
+    // --- اعتبارسنجی ورودی‌ها ---
+    const validateInput = (event) => {
+        const inputElement = event.target;
+        const errorElement = document.getElementById(`${inputElement.id}Error`);
+        const regex = /^[a-zA-Z0-9-_]*$/; // حروف انگلیسی، اعداد، خط تیره، زیرخط
 
-    function toggleMute() {
-      state.isMuted = !state.isMuted;
-      elements.muteButton.innerHTML = `
-        <svg class="w-5 h-5 inline-block ml-2" fill="currentColor" viewBox="0 0 20 20">
-          <path d="${state.isMuted ? 'M10 3a2 2 0 00-2 2v5l-3 3v2h3l3-3h1V5a2 2 0 00-2-2H8zm5 2l-3 3' : 'M10 3a2 2 0 00-2 2v5a2 2 0 002 2h1l1 5h2V3h-4z'}"/>
-        </svg>
-        ${state.isMuted ? 'باصدا' : 'بی‌صدا'}
-      `;
-      showMessage(state.isMuted ? 'میکروفون بی‌صدا شد' : 'میکروفون باصدا شد', 'success');
-    }
+        if (!regex.test(inputElement.value)) {
+            inputElement.value = inputElement.value.replace(/[^a-zA-Z0-9-_]/g, '');
+            errorElement.textContent = 'فقط حروف انگلیسی، اعداد، خط تیره و زیرخط مجاز است.';
+            inputElement.classList.add('input-error');
+            setTimeout(() => {
+                errorElement.textContent = '';
+                inputElement.classList.remove('input-error');
+            }, 3000);
+        } else {
+            errorElement.textContent = '';
+            inputElement.classList.remove('input-error');
+        }
+    };
 
-    // Event listeners
-    elements.themeToggle.addEventListener('click', () => {
-      document.body.classList.toggle('dark');
-      const isDark = document.body.classList.contains('dark');
-      updateThemeIcon();
-      localStorage.setItem('theme', isDark ? 'dark' : 'light');
-      console.log('Theme toggled to:', isDark ? 'dark' : 'light');
-    });
+    // --- ذخیره و بارگذاری تنظیمات ---
+    const saveSettings = () => {
+        const settings = {
+            theme: document.body.classList.contains('light-mode') ? 'light' : 'dark',
+            proaudio: elements.proaudioToggle.checked,
+            broadcast: elements.broadcastToggle.checked,
+            audioonly: elements.audioonlyToggle.checked,
+            mute: elements.muteToggle.checked,
+            lowdata: elements.lowdataToggle.checked,
+            record: elements.recordToggle.checked,
+            nochat: elements.nochatToggle.checked,
+            solo: elements.soloToggle.checked,
+            muteall: elements.muteallToggle.checked,
+            present: elements.presentToggle.checked,
+            screen: elements.screenToggle.checked,
+            grid: elements.gridToggle.checked,
+            sounds: elements.soundsToggle.checked,
+            autopass: elements.autopassToggle.checked,
+            logging: elements.loggingToggle.checked,
+            resolution: elements.resolutionSelect.value,
+            framerate: elements.framerateSelect.value,
+            maxviewers: elements.maxviewersSelect.value,
+        };
+        
+        localStorage.setItem('remotevm_settings', JSON.stringify(settings));
+        activeSettings = settings;
+    };
 
-    // Initialize theme
-    if (localStorage.getItem('theme') === 'dark') {
-      document.body.classList.add('dark');
-    }
-    updateThemeIcon();
+    const loadSettings = () => {
+        try {
+            const settings = JSON.parse(localStorage.getItem('remotevm_settings') || '{}');
+            activeSettings = settings;
+            
+            // اعمال تنظیمات تم
+            if (settings.theme === 'light') {
+                document.body.classList.add('light-mode');
+                elements.themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+            }
+            
+            // اعمال سایر تنظیمات
+            if (settings.proaudio !== undefined) elements.proaudioToggle.checked = settings.proaudio;
+            if (settings.broadcast !== undefined) elements.broadcastToggle.checked = settings.broadcast;
+            if (settings.audioonly !== undefined) elements.audioonlyToggle.checked = settings.audioonly;
+            if (settings.mute !== undefined) elements.muteToggle.checked = settings.mute;
+            if (settings.lowdata !== undefined) elements.lowdataToggle.checked = settings.lowdata;
+            if (settings.record !== undefined) elements.recordToggle.checked = settings.record;
+            if (settings.nochat !== undefined) elements.nochatToggle.checked = settings.nochat;
+            if (settings.solo !== undefined) elements.soloToggle.checked = settings.solo;
+            if (settings.muteall !== undefined) elements.muteallToggle.checked = settings.muteall;
+            if (settings.present !== undefined) elements.presentToggle.checked = settings.present;
+            if (settings.screen !== undefined) elements.screenToggle.checked = settings.screen;
+            if (settings.grid !== undefined) elements.gridToggle.checked = settings.grid;
+            if (settings.sounds !== undefined) elements.soundsToggle.checked = settings.sounds;
+            if (settings.autopass !== undefined) elements.autopassToggle.checked = settings.autopass;
+            if (settings.logging !== undefined) elements.loggingToggle.checked = settings.logging;
+            if (settings.resolution) elements.resolutionSelect.value = settings.resolution;
+            if (settings.framerate) elements.framerateSelect.value = settings.framerate;
+            if (settings.maxviewers) elements.maxviewersSelect.value = settings.maxviewers;
+            
+            checkActiveSettings();
+        } catch (error) {
+            console.error('Error loading settings:', error);
+        }
+    };
 
-    // Debounced window resize handler
-    window.addEventListener('resize', debounce(() => {}, 200));
+    // --- مدیریت تب‌ها ---
+    const setupTabs = () => {
+        elements.tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // فعال کردن دکمه تب
+                elements.tabButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                
+                // نمایش محتوای تب
+                const tabId = button.getAttribute('data-tab');
+                elements.tabContents.forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+    };
 
-    // Keyboard navigation
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && document.activeElement === elements.startCallBtn) {
-        startVDOCall();
-      } else if (e.key === 'Enter' && document.activeElement === elements.shareButton) {
-        shareRoomLink();
-      }
-    });
-  </script>
+    // --- تولید نام و رمز تصادفی ---
+    const generateRandomName = () => {
+        const adjectives = ['awesome', 'cool', 'bright', 'smart', 'happy', 'clever', 'brilliant', 'super'];
+        const nouns = ['meeting', 'session', 'webinar', 'conference', 'talk', 'stream', 'event', 'gathering'];
+        const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
+        const randomNum = Math.floor(Math.random() * 1000);
+        
+        return `${randomAdjective}${randomNoun}${randomNum}`;
+    };
+
+    const generateRandomPassword = () => {
+        const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let password = '';
+        for (let i = 0; i < 8; i++) {
+            password += charset.charAt(Math.floor(Math.random() * charset.length));
+        }
+        return password;
+    };
+
+    // --- تایمر جلسه ---
+    const startSessionTimer = () => {
+        sessionStartTime = new Date();
+        elements.sessionTimer.textContent = '00:00:00';
+        
+        sessionTimer = setInterval(() => {
+            const now = new Date();
+            const diff = now - sessionStartTime;
+            
+            const hours = Math.floor(diff / 3600000).toString().padStart(2, '0');
+            const minutes = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+            const seconds = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+            
+            elements.sessionTimer.textContent = `${hours}:${minutes}:${seconds}`;
+        }, 1000);
+    };
+
+    const stopSessionTimer = () => {
+        if (sessionTimer) {
+            clearInterval(sessionTimer);
+            sessionTimer = null;
+        }
+    };
+
+    // --- شبیه‌سازی وضعیت اتصال ---
+    const simulateNetworkStatus = () => {
+        const updateNetworkStatus = () => {
+            const quality = Math.floor(Math.random() * 5); // 0-4
+            let qualityText = '';
+            
+            switch(quality) {
+                case 4:
+                    qualityText = 'عالی';
+                    updateSignalBars(4);
+                    break;
+                case 3:
+                    qualityText = 'خوب';
+                    updateSignalBars(3);
+                    break;
+                case 2:
+                    qualityText = 'متوسط';
+                    updateSignalBars(2);
+                    break;
+                case 1:
+                    qualityText = 'ضعیف';
+                    updateSignalBars(1);
+                    break;
+                case 0:
+                    qualityText = 'بسیار ضعیف';
+                    updateSignalBars(0);
+                    break;
+            }
+            
+            elements.networkQuality.textContent = `اتصال: ${qualityText}`;
+            
+            // شبیه‌سازی تغییر تعداد شرکت‌کنندگان
+            if (Math.random() > 0.7) {
+                const participantChange = Math.floor(Math.random() * 3) - 1; // -1, 0, or 1
+                const currentCount = parseInt(elements.participantNumber.textContent);
+                const newCount = Math.max(1, currentCount + participantChange); // حداقل 1 نفر
+                elements.participantNumber.textContent = newCount;
+            }
+        };
+        
+        // بروزرسانی هر 5 ثانیه
+        updateNetworkStatus();
+        setInterval(updateNetworkStatus, 5000);
+    };
+
+    const updateSignalBars = (activeCount) => {
+        elements.signalBars.forEach((bar, index) => {
+            if (index < activeCount) {
+                bar.classList.remove('inactive');
+            } else {
+                bar.classList.add('inactive');
+            }
+        });
+    };
+
+    // --- بررسی و نمایش وضعیت تنظیمات فعال ---
+    const checkActiveSettings = () => {
+        const toggles = [
+            elements.proaudioToggle, elements.broadcastToggle, elements.audioonlyToggle,
+            elements.muteToggle, elements.lowdataToggle, elements.recordToggle,
+            elements.nochatToggle, elements.soloToggle, elements.muteallToggle,
+            elements.presentToggle, elements.screenToggle, elements.gridToggle,
+            elements.soundsToggle, elements.autopassToggle, elements.loggingToggle
+        ];
+        
+        const selects = [
+            elements.resolutionSelect, elements.framerateSelect, elements.maxviewersSelect
+        ];
+        
+        const hasActiveSettings = 
+            toggles.some(toggle => toggle.checked) || 
+            selects.some(select => select.value !== '');
+        
+        elements.settingsBadge.classList.toggle('hidden', !hasActiveSettings);
+    };
+
+    // --- منطق اصلی برنامه: ایجاد اتاق ---
+    const createRoom = () => {
+        // اعتبارسنجی فرم
+        if (elements.roomNameInput.value.trim() === '') {
+            elements.roomNameInput.value = generateRandomName();
+        }
+        
+        const roomName = elements.roomNameInput.value.trim().replace(/\s+/g, '-');
+        const roomPassword = elements.roomPasswordInput.value.trim();
+        const directorViewPassword = generateId(16);
+        const baseURL = "https://live.remotevm.ir/";
+        const stunServer = "stun:stun.l.google.com:19302";
+        
+        // ساخت پارامترهای پایه
+        const baseParams = { stun: stunServer };
+        
+        // اضافه کردن پارامترهای صدا و تصویر
+        if (elements.proaudioToggle.checked) baseParams.proaudio = '';
+        if (elements.audioonlyToggle.checked) baseParams.audioonly = '';
+        if (elements.muteToggle.checked) baseParams.mute = '';
+        if (elements.lowdataToggle.checked) baseParams.lowdata = '';
+        
+        if (elements.resolutionSelect.value) baseParams.quality = elements.resolutionSelect.value;
+        if (elements.framerateSelect.value) baseParams.framerate = elements.framerateSelect.value;
+        
+        // پارامترهای امنیتی
+        if (elements.soloToggle.checked) baseParams.solo = '';
+        if (elements.muteallToggle.checked) baseParams.muteall = '';
+        if (elements.autopassToggle.checked) baseParams.autopass = '';
+        if (elements.loggingToggle.checked) baseParams.logging = '';
+        
+        // پارامترهای چیدمان
+        if (elements.presentToggle.checked) baseParams.present = '';
+        if (elements.screenToggle.checked) baseParams.screenshare = '';
+        if (elements.gridToggle.checked) baseParams.grid = '';
+        if (elements.maxviewersSelect.value) baseParams.maxviewers = elements.maxviewersSelect.value;
+        
+        // پارامترهای دیگر
+        if (elements.recordToggle.checked) baseParams.record = '';
+        if (elements.nochatToggle.checked) baseParams.nochat = '';
+        if (elements.soundsToggle.checked) baseParams.sounds = '';
+        
+        // ساخت پارامترهای مدیر
+        const directorParams = new URLSearchParams({ ...baseParams, director: roomName, proxy: '' });
+        if (roomPassword) directorParams.append('password', roomPassword);
+        
+        // ساخت پارامترهای مهمان
+        const guestParams = new URLSearchParams({ ...baseParams, room: roomName, autoview: '' });
+        if (roomPassword) guestParams.append('password', roomPassword);
+        elements.guestLinkInput.value = `${baseURL}?${guestParams.toString()}`;
+        
+        // اگر برودکست فعال است
+        if (elements.broadcastToggle.checked) {
+            const broadcastParams = new URLSearchParams({ ...baseParams, view: roomName, password: directorViewPassword });
+            elements.broadcastLinkInput.value = `${baseURL}?${broadcastParams.toString()}`;
+            directorParams.append('broadcast', directorViewPassword);
+            elements.broadcastContainer.classList.remove('hidden');
+        } else {
+            elements.broadcastContainer.classList.add('hidden');
+        }
+
+        // بارگذاری iframe و بروزرسانی وضعیت
+        elements.vdoFrame.src = `${baseURL}?${directorParams.toString()}`;
+        elements.mainTitle.textContent = `پنل مدیریت: ${roomName}`;
+        updateStatus(true);
+        
+        // ذخیره تنظیمات
+        saveSettings();
+    };
+
+    // --- رویدادهای کلیک دکمه‌ها ---
+    const setupEventListeners = () => {
+        // اعتبارسنجی ورودی‌ها
+        elements.roomNameInput.addEventListener('input', validateInput);
+        elements.roomPasswordInput.addEventListener('input', validateInput);
+        
+        // رویدادهای دکمه‌های اصلی
+        elements.createRoomBtn.addEventListener('click', createRoom);
+        elements.endCallBtn.addEventListener('click', () => {
+            elements.vdoFrame.src = 'about:blank';
+            updateStatus(false);
+            elements.roomNameInput.value = '';
+            elements.roomPasswordInput.value = '';
+        });
+        
+        // کپی کردن لینک‌ها
+        elements.copyGuestLinkBtn.addEventListener('click', () => 
+            copyToClipboard(elements.guestLinkInput, 'لینک شرکت‌کنندگان کپی شد!'));
+        elements.copyBroadcastLinkBtn.addEventListener('click', () => 
+            copyToClipboard(elements.broadcastLinkInput, 'لینک نمایش پیام کپی شد!'));
+        
+        // اشتراک گذاری لینک
+        elements.shareGuestLinkBtn.addEventListener('click', async () => {
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'دعوت به کنفرانس آنلاین',
+                        text: 'برای پیوستن به کنفرانس روی لینک زیر کلیک کنید:',
+                        url: elements.guestLinkInput.value
+                    });
+                    showCopyMessage('لینک با موفقیت به اشتراک گذاشته شد!');
+                } catch (err) {
+                    console.error('خطا در اشتراک‌گذاری:', err);
+                }
+            } else {
+                copyToClipboard(elements.guestLinkInput, 'لینک کپی شد! آن را به اشتراک بگذارید.');
+            }
+        });
+        
+        // تغییر تم
+        elements.themeToggle.addEventListener('click', () => {
+            const isLightMode = document.body.classList.toggle('light-mode');
+            elements.themeToggle.innerHTML = isLightMode ? 
+                '<i class="fas fa-sun"></i>' : 
+                '<i class="fas fa-moon"></i>';
+            
+            saveSettings();
+        });
+        
+        // نمایش راهنما
+        elements.helpButton.addEventListener('click', () => {
+            elements.helpModal.classList.remove('hidden');
+        });
+        
+        elements.closeHelpBtn.addEventListener('click', () => {
+            elements.helpModal.classList.add('hidden');
+        });
+        
+        // بستن مودال با کلیک بیرون از آن
+        elements.helpModal.addEventListener('click', (e) => {
+            if (e.target === elements.helpModal) {
+                elements.helpModal.classList.add('hidden');
+            }
+        });
+        
+        // تولید نام و رمز تصادفی
+        elements.generateRoomNameBtn.addEventListener('click', () => {
+            elements.roomNameInput.value = generateRandomName();
+        });
+        
+        elements.generatePasswordBtn.addEventListener('click', () => {
+            elements.roomPasswordInput.value = generateRandomPassword();
+        });
+        
+        // دکمه‌های کنترل در حین کنفرانس
+        elements.muteAudioBtn.addEventListener('click', () => {
+            alert('این قابلیت در حال حاضر از طریق رابط VDO.Ninja قابل استفاده است');
+        });
+        
+        elements.stopVideoBtn.addEventListener('click', () => {
+            alert('این قابلیت در حال حاضر از طریق رابط VDO.Ninja قابل استفاده است');
+        });
+        
+        elements.shareScreenBtn.addEventListener('click', () => {
+            alert('این قابلیت در حال حاضر از طریق رابط VDO.Ninja قابل استفاده است');
+        });
+        
+        elements.recordBtn.addEventListener('click', () => {
+            alert('این قابلیت در حال حاضر از طریق رابط VDO.Ninja قابل استفاده است');
+        });
+        
+        // رویداد تغییر تنظیمات
+        const settingsElements = [
+            ...document.querySelectorAll('.toggle-switch input'),
+            ...document.querySelectorAll('select')
+        ];
+        
+        settingsElements.forEach(element => {
+            element.addEventListener('change', () => {
+                checkActiveSettings();
+            });
+        });
+        
+        // اضافه کردن رویداد برای تغییر اندازه صفحه
+        window.addEventListener('resize', () => {
+            if (elements.vdoFrame) {
+                elements.vdoFrame.style.width = "100%";
+                elements.vdoFrame.style.height = "100%";
+            }
+        });
+    };
+
+    // --- راه‌اندازی اولیه ---
+    const init = () => {
+        setupTabs();
+        setupEventListeners();
+        loadSettings();
+        setTimeout(() => { elements.overlay.classList.add('hidden'); }, 1200);
+    };
+
+    // شروع برنامه
+    init();
+});
+</script>
 </body>
 </html>
