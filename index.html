@@ -7,6 +7,7 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;800&display=swap');
         :root {
@@ -21,7 +22,6 @@
             --anim-speed-fast: 1.5s;
         }
         
-        /* Base Styles */
         body { 
             background: var(--dark-bg); 
             font-family: 'Vazirmatn', sans-serif; 
@@ -57,10 +57,10 @@
             text-shadow: 0 0 15px rgba(0, 191, 255, 0.2); 
         }
         
-        /* Form Inputs */
         input[type="text"], 
         input[type="password"],
-        select { 
+        select,
+        input[type="number"] { 
             color: var(--dark-text); 
             background-color: rgba(10, 10, 26, 0.7); 
             border: 1px solid transparent; 
@@ -72,7 +72,8 @@
         }
         .light-mode input[type="text"], 
         .light-mode input[type="password"],
-        .light-mode select { 
+        .light-mode select,
+        .light-mode input[type="number"] { 
             color: var(--light-text); 
             background-color: rgba(240, 240, 250, 0.7);
             box-shadow: inset 0 0 8px rgba(0, 128, 255, 0.1);
@@ -82,8 +83,24 @@
             outline: none; 
             box-shadow: 0 0 10px var(--neon-pink), inset 0 0 8px rgba(255, 0, 200, 0.3); 
         }
+        .max-participants-input { 
+            background: linear-gradient(90deg, rgba(0, 191, 255, 0.1), rgba(255, 0, 200, 0.1)); 
+            border: 2px solid var(--neon-purple); 
+            box-shadow: 0 0 15px rgba(164, 94, 255, 0.3); 
+            transition: all 0.3s ease; 
+        }
+        .max-participants-input:focus { 
+            box-shadow: 0 0 20px var(--neon-purple), inset 0 0 10px rgba(164, 94, 255, 0.4); 
+        }
+        .light-mode .max-participants-input {
+            background: linear-gradient(90deg, rgba(0, 128, 255, 0.1), rgba(200, 0, 150, 0.1));
+            border: 2px solid var(--neon-blue);
+            box-shadow: 0 0 15px rgba(0, 128, 255, 0.2);
+        }
+        .light-mode .max-participants-input:focus {
+            box-shadow: 0 0 20px var(--neon-blue), inset 0 0 10px rgba(0, 128, 255, 0.3);
+        }
         
-        /* Buttons */
         .btn { 
             position: relative; 
             overflow: hidden; 
@@ -113,7 +130,6 @@
             box-shadow: 0 0 15px rgba(0, 128, 255, 0.2);
         }
         
-        /* Animations */
         @keyframes animate-top { 0% { left: -100%; } 100% { left: 100%; } }
         @keyframes animate-right { 0% { top: -100%; } 100% { top: 100%; } }
         @keyframes animate-bottom { 0% { right: -100%; } 100% { right: 100%; } }
@@ -124,7 +140,6 @@
             100% { opacity: 0.5; transform: scale(0.95); }
         }
         
-        /* Button Effects */
         .btn-primary .border-line-blue { position: absolute; display: block; opacity: 0; }
         .btn-primary:hover .border-line-blue { opacity: 1; }
         .btn-primary .border-line-blue:nth-child(1) { top: 0; left: -100%; width: 100%; height: 2px; background: linear-gradient(90deg, transparent, var(--neon-blue)); }
@@ -136,7 +151,6 @@
         .btn-primary .border-line-blue:nth-child(4) { bottom: -100%; left: 0; width: 2px; height: 100%; background: linear-gradient(360deg, transparent, var(--neon-blue)); }
         .btn-primary:hover .border-line-blue:nth-child(4) { animation: animate-left var(--anim-speed-fast) linear infinite; animation-delay: 1.125s; }
         
-        /* Status Indicators */
         .status-indicator { 
             width: 12px; 
             height: 12px; 
@@ -151,7 +165,6 @@
         }
         .status-inactive { background: #ff4444; }
         
-        /* Overlay */
         .overlay { 
             position: fixed; 
             top: 0; 
@@ -175,7 +188,6 @@
             color: transparent; 
         }
         
-        /* Tooltips */
         .tooltip {
             position: relative;
             cursor: help;
@@ -200,7 +212,6 @@
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
         
-        /* Toggle Switch */
         .toggle-switch { display: inline-block; position: relative; width: 57px; height: 27px; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
         .toggle-switch .slider { 
@@ -242,7 +253,6 @@
             background-color: greenyellow; 
         }
         
-        /* iFrame Container */
         #iframe-container { 
             position: relative; 
             overflow: hidden; 
@@ -266,11 +276,9 @@
             display: block;
         }
         
-        /* Validation */
         .input-error { border-image: linear-gradient(90deg, #ff4444, #ff00c8) 1 !important; }
         .error-message { color: #ff4444; font-size: 0.8rem; height: 1.2rem; transition: all 0.3s; }
         
-        /* Timer */
         .session-timer {
             font-family: monospace;
             font-size: 1.2rem;
@@ -285,7 +293,6 @@
             color: var(--light-text);
         }
         
-        /* Network Status */
         .network-status {
             display: flex;
             align-items: center;
@@ -312,13 +319,11 @@
             background-color: rgba(57, 255, 20, 0.2);
         }
         
-        /* Settings Badge */
         .settings-badge {
             position: absolute;
-            top: -5px;
+            top: -15px;
             right: -5px;
-            background: var(--neon-pink);
-            color: white;
+            color: var(--neon-pink);
             width: 20px;
             height: 20px;
             border-radius: 50%;
@@ -329,7 +334,6 @@
             font-weight: bold;
         }
         
-        /* Tabs */
         .tab-buttons {
             display: flex;
             border-bottom: 1px solid rgba(164, 94, 255, 0.3);
@@ -357,14 +361,16 @@
             to { opacity: 1; }
         }
         
-        /* Responsive Design */
+        .qr-container { display: none; margin-top: 10px; text-align: center; }
+        .qr-container canvas { border: 2px solid var(--neon-blue); border-radius: 8px; }
+        
         @media (max-width: 600px) {
             #iframe-container {
                 width: 100vw;
                 min-width: 100vw;
                 max-width: 100vw;
-                aspect-ratio: 6/19;
-                min-height: 180px;
+                aspect-ratio: 9/16;
+                min-height: 100vh;
                 height: 100vh;
                 max-height: 100vh;
                 border-radius: 0;
@@ -373,8 +379,8 @@
                 width: 100vw;
                 min-width: 100vw;
                 max-width: 100vw;
-                aspect-ratio: 6/19;
-                min-height: 180px;
+                aspect-ratio: 9/16;
+                min-height: 100vh;
                 height: 100vh;
                 max-height: 100vh;
                 border-radius: 0;
@@ -438,7 +444,6 @@
         </header>
         
         <main>
-            <!-- بخش ایجاد اتاق -->
             <section id="roomCreationSection">
                 <div class="space-y-6">
                     <div class="flex flex-col md:flex-row gap-4">
@@ -463,7 +468,7 @@
                             <p id="roomPasswordError" class="error-message"></p>
                         </div>
                     </div>
-                    
+                
                     <details class="p-4 rounded-lg border border-dashed border-purple-500/50" id="advancedSettingsDetails">
                         <summary class="font-bold text-lg cursor-pointer flex items-center justify-between">
                             <span>تنظیمات پیشرفته</span>
@@ -471,7 +476,6 @@
                         </summary>
                         
                         <div class="mt-4 pt-4 border-t border-purple-500/30">
-                            <!-- تب‌های تنظیمات -->
                             <div class="tab-buttons">
                                 <div class="tab-button active" data-tab="audio-video">صدا و تصویر</div>
                                 <div class="tab-button" data-tab="security">امنیت</div>
@@ -479,13 +483,16 @@
                                 <div class="tab-button" data-tab="other">سایر</div>
                             </div>
                             
-                            <!-- محتوای تب‌ها -->
                             <div class="tab-content active" id="audio-video">
                                 <div class="space-y-4 settings-columns flex flex-col md:flex-row md:space-x-4 md:space-x-reverse">
                                     <div class="md:w-1/2 space-y-4">
                                         <div class="flex items-center justify-between">
                                             <span class="tooltip" data-tooltip="کیفیت صدای بهتر">صدای حرفه‌ای</span>
                                             <label class="toggle-switch"><input type="checkbox" id="proaudio-toggle"><span class="slider"></span></label>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="tooltip" data-tooltip="صدای استریو برای کیفیت بالاتر">صدای استریو</span>
+                                            <label class="toggle-switch"><input type="checkbox" id="stereo-toggle"><span class="slider"></span></label>
                                         </div>
                                         <div class="flex items-center justify-between">
                                             <span class="tooltip" data-tooltip="بدون ارسال تصویر">فقط صدا</span>
@@ -515,6 +522,14 @@
                                             </select>
                                         </div>
                                         <div class="flex items-center justify-between">
+                                            <span class="tooltip" data-tooltip="کیفیت ویدیو (Bitrate)">کیفیت ویدیو (Bitrate)</span>
+                                            <select id="bitrate-select" class="w-32">
+                                                <option value="500">کم (500kbps)</option>
+                                                <option value="1000">متوسط (1000kbps)</option>
+                                                <option value="2000">بالا (2000kbps)</option>
+                                            </select>
+                                        </div>
+                                        <div class="flex items-center justify-between">
                                             <span class="tooltip" data-tooltip="حالت مصرف کمتر اینترنت">حالت کم‌مصرف</span>
                                             <label class="toggle-switch"><input type="checkbox" id="lowdata-toggle"><span class="slider"></span></label>
                                         </div>
@@ -540,6 +555,10 @@
                                         <span class="tooltip" data-tooltip="ثبت ورود و خروج کاربران">ثبت رویدادها</span>
                                         <label class="toggle-switch"><input type="checkbox" id="logging-toggle"><span class="slider"></span></label>
                                     </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="الزامی کردن رمز عبور برای ورود">الزامی کردن رمز</span>
+                                        <label class="toggle-switch"><input type="checkbox" id="requirepassword-toggle"><span class="slider"></span></label>
+                                    </div>
                                 </div>
                             </div>
                             
@@ -558,13 +577,8 @@
                                         <label class="toggle-switch"><input type="checkbox" id="grid-toggle"><span class="slider"></span></label>
                                     </div>
                                     <div class="flex items-center justify-between">
-                                        <span class="tooltip" data-tooltip="تعداد افراد قابل نمایش همزمان">تعداد نمایش همزمان</span>
-                                        <select id="maxviewers-select" class="w-32">
-                                            <option value="">نامحدود</option>
-                                            <option value="4">4 نفر</option>
-                                            <option value="9">9 نفر</option>
-                                            <option value="16">16 نفر</option>
-                                        </select>
+                                        <span class="tooltip" data-tooltip="تعداد افراد قابل نمایش همزمان">حداکثر شرکت‌کنندگان</span>
+                                        <input type="number" id="maxParticipantsInput" class="w-32 max-participants-input" min="1" max="100" value="10" placeholder="مثال: 10">
                                     </div>
                                 </div>
                             </div>
@@ -576,10 +590,6 @@
                                         <label class="toggle-switch"><input type="checkbox" id="broadcast-toggle"><span class="slider"></span></label>
                                     </div>
                                     <div class="flex items-center justify-between">
-                                        <span class="tooltip" data-tooltip="ضبط جلسه بصورت خودکار">ضبط خودکار</span>
-                                        <label class="toggle-switch"><input type="checkbox" id="record-toggle"><span class="slider"></span></label>
-                                    </div>
-                                    <div class="flex items-center justify-between">
                                         <span class="tooltip" data-tooltip="بدون چت گروهی">بدون چت</span>
                                         <label class="toggle-switch"><input type="checkbox" id="nochat-toggle"><span class="slider"></span></label>
                                     </div>
@@ -587,646 +597,661 @@
                                         <span class="tooltip" data-tooltip="پخش اعلان صوتی ورود و خروج">اعلان‌های صوتی</span>
                                         <label class="toggle-switch"><input type="checkbox" id="sounds-toggle"><span class="slider"></span></label>
                                     </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="tooltip" data-tooltip="انتخاب سرور STUN/TURN">سرور STUN</span>
+                                        <select id="stun-select" class="w-full">
+                                            <option value="">پیش‌فرض</option>
+                                            <option value="stun:stun.l.google.com:19302">Google STUN</option>
+                                            <option value="stun:stun.stunprotocol.org:3478">Stunprotocol</option>
+                                            <option value="stun:stun.1und1.de:3478">1und1</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </details>
-                    
+                
                     <button id="createRoomBtn" class="btn btn-primary w-full py-3 text-lg">
                         <span class="border-line-blue"></span><span class="border-line-blue"></span><span class="border-line-blue"></span><span class="border-line-blue"></span>
                         ایجاد و ورود به پنل مدیریت
                     </button>
-                </div>
-            </section>
-            
-            <!-- بخش داخل جلسه -->
-            <section id="inCallSection" class="hidden">
-                <div class="space-y-6">
-                    <div class="flex flex-wrap justify-between items-center mb-4">
-                        <div class="session-timer" id="session-timer">00:00:00</div>
-                        <div class="flex items-center gap-2">
-                            <div class="network-status">
-                                <span id="network-quality">اتصال: </span>
-                                <div class="signal-strength">
-                                    <div class="signal-bar"></div>
-                                    <div class="signal-bar"></div>
-                                    <div class="signal-bar"></div>
-                                    <div class="signal-bar"></div>
+                </section>
+                
+                <section id="inCallSection" class="hidden">
+                    <div class="space-y-6">
+                        <div class="flex flex-wrap justify-between items-center mb-4">
+                            <div class="session-timer" id="session-timer">00:00:00</div>
+                            <div class="flex items-center gap-2">
+                                <div class="network-status">
+                                    <span id="network-quality">اتصال: </span>
+                                    <div class="signal-strength">
+                                        <div class="signal-bar"></div>
+                                        <div class="signal-bar"></div>
+                                        <div class="signal-bar"></div>
+                                        <div class="signal-bar"></div>
+                                    </div>
+                                </div>
+                                <div id="participants-count" class="p-2 bg-purple-500/30 rounded-lg">
+                                    <i class="fas fa-users"></i> <span id="participant-number">1</span>
                                 </div>
                             </div>
-                            <div id="participants-count" class="p-2 bg-purple-500/30 rounded-lg">
-                                <i class="fas fa-users"></i> <span id="participant-number">1</span>
+                        </div>
+                        
+                        <div class="p-4 rounded-lg border border-dashed border-cyan-500/50 space-y-4">
+                            <div>
+                                <label class="block font-medium text-cyan-300">لینک دعوت برای شرکت‌کنندگان:</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="guestLinkInput" class="w-full" readonly>
+                                    <button id="copyGuestLinkBtn" class="btn p-3 tooltip" data-tooltip="کپی لینک">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                    <button id="shareGuestLinkBtn" class="btn p-3 tooltip" data-tooltip="اشتراک‌گذاری">
+                                        <i class="fas fa-share-alt"></i>
+                                    </button>
+                                    <button id="qrGuestBtn" class="btn p-3 tooltip" data-tooltip="نمایش QR کد">
+                                        <i class="fas fa-qrcode"></i>
+                                    </button>
+                                </div>
+                                <div id="qrGuestContainer" class="qr-container"></div>
+                            </div>
+                            <div id="broadcastContainer" class="hidden">
+                                <label class="block font-medium text-cyan-300">لینک نمایش پیام‌ها (برای OBS):</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="broadcastLinkInput" class="w-full" readonly>
+                                    <button id="copyBroadcastLinkBtn" class="btn p-3 tooltip" data-tooltip="کپی لینک">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                    <button id="qrBroadcastBtn" class="btn p-3 tooltip" data-tooltip="نمایش QR کد">
+                                        <i class="fas fa-qrcode"></i>
+                                    </button>
+                                </div>
+                                <div id="qrBroadcastContainer" class="qr-container"></div>
                             </div>
                         </div>
+                        
+                        <p id="copyMessage" class="text-sm text-green-400 h-5 text-center" role="alert"></p>
+                        
+                        <div id="iframe-container" class="w-full">
+                            <iframe id="vdoFrame" allow="camera; microphone; autoplay; display-capture; fullscreen"></iframe>
+                        </div>
+                        
+                        <div class="flex flex-wrap gap-2 justify-center">
+                            <button id="muteAudioBtn" class="btn py-2 px-4">
+                                <i class="fas fa-microphone-slash mr-2"></i> قطع صدا
+                            </button>
+                            <button id="stopVideoBtn" class="btn py-2 px-4">
+                                <i class="fas fa-video-slash mr-2"></i> قطع تصویر
+                            </button>
+                            <button id="shareScreenBtn" class="btn py-2 px-4">
+                                <i class="fas fa-desktop mr-2"></i> اشتراک صفحه
+                            </button>
+                            <button id="fullscreenBtn" class="btn py-2 px-4">
+                                <i class="fas fa-expand mr-2"></i> تمام صفحه
+                            </button>
+                        </div>
+                        
+                        <button id="endCallBtn" class="btn w-full py-3 text-lg bg-red-700 hover:bg-red-800">
+                            <i class="fas fa-phone-slash mr-2"></i> خروج و ساخت اتاق جدید
+                        </button>
                     </div>
-                    
-                    <div class="p-4 rounded-lg border border-dashed border-cyan-500/50 space-y-4">
+                </section>
+            </main>
+            
+            <div id="helpModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+                <div class="bg-gray-900 p-6 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold">راهنمای استفاده</h3>
+                        <button id="closeHelpBtn" class="btn p-2">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="space-y-4">
                         <div>
-                            <label class="block font-medium text-cyan-300">لینک دعوت برای شرکت‌کنندگان:</label>
-                            <div class="flex gap-2">
-                                <input type="text" id="guestLinkInput" class="w-full" readonly>
-                                <button id="copyGuestLinkBtn" class="btn p-3 tooltip" data-tooltip="کپی لینک">
-                                    <i class="fas fa-copy"></i>
-                                </button>
-                                <button id="shareGuestLinkBtn" class="btn p-3 tooltip" data-tooltip="اشتراک‌گذاری">
-                                    <i class="fas fa-share-alt"></i>
-                                </button>
-                            </div>
+                            <h4 class="font-bold mb-2">ایجاد اتاق کنفرانس</h4>
+                            <p>برای ایجاد اتاق کنفرانس، یک نام انگلیسی برای اتاق وارد کنید. می‌توانید از دکمه تاس برای تولید نام تصادفی استفاده کنید.</p>
                         </div>
-                        <div id="broadcastContainer" class="hidden">
-                            <label class="block font-medium text-cyan-300">لینک نمایش پیام‌ها (برای OBS):</label>
-                            <div class="flex gap-2">
-                                <input type="text" id="broadcastLinkInput" class="w-full" readonly>
-                                <button id="copyBroadcastLinkBtn" class="btn p-3 tooltip" data-tooltip="کپی لینک">
-                                    <i class="fas fa-copy"></i>
-                                </button>
-                            </div>
+                        <div>
+                            <h4 class="font-bold mb-2">تنظیمات پیشرفته</h4>
+                            <p>در بخش تنظیمات پیشرفته می‌توانید کیفیت صدا و تصویر، امنیت، چیدمان و سایر تنظیمات را شخصی‌سازی کنید.</p>
                         </div>
-                    </div>
-                    
-                    <p id="copyMessage" class="text-sm text-green-400 h-5 text-center" role="alert"></p>
-                    
-                    <div id="iframe-container" class="w-full">
-                        <iframe id="vdoFrame" allow="camera; microphone; autoplay; display-capture; fullscreen"></iframe>
-                    </div>
-                    
-                    <div class="flex flex-wrap gap-2 justify-center">
-                        <button id="muteAudioBtn" class="btn py-2 px-4">
-                            <i class="fas fa-microphone-slash mr-2"></i> قطع صدا
-                        </button>
-                        <button id="stopVideoBtn" class="btn py-2 px-4">
-                            <i class="fas fa-video-slash mr-2"></i> قطع تصویر
-                        </button>
-                        <button id="shareScreenBtn" class="btn py-2 px-4">
-                            <i class="fas fa-desktop mr-2"></i> اشتراک صفحه
-                        </button>
-                        <button id="recordBtn" class="btn py-2 px-4">
-                            <i class="fas fa-record-vinyl mr-2"></i> ضبط
-                        </button>
-                    </div>
-                    
-                    <button id="endCallBtn" class="btn w-full py-3 text-lg bg-red-700 hover:bg-red-800">
-                        <i class="fas fa-phone-slash mr-2"></i> خروج و ساخت اتاق جدید
-                    </button>
-                </div>
-            </section>
-        </main>
-        
-        <!-- مودال راهنما -->
-        <div id="helpModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
-            <div class="bg-gray-900 p-6 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-auto">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold">راهنمای استفاده</h3>
-                    <button id="closeHelpBtn" class="btn p-2">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="space-y-4">
-                    <div>
-                        <h4 class="font-bold mb-2">ایجاد اتاق کنفرانس</h4>
-                        <p>برای ایجاد اتاق کنفرانس، یک نام انگلیسی برای اتاق وارد کنید. می‌توانید از دکمه تاس برای تولید نام تصادفی استفاده کنید.</p>
-                    </div>
-                    <div>
-                        <h4 class="font-bold mb-2">تنظیمات پیشرفته</h4>
-                        <p>در بخش تنظیمات پیشرفته می‌توانید کیفیت صدا و تصویر، امنیت، چیدمان و سایر تنظیمات را شخصی‌سازی کنید.</p>
-                    </div>
-                    <div>
-                        <h4 class="font-bold mb-2">دعوت شرکت‌کنندگان</h4>
-                        <p>پس از ایجاد اتاق، لینک دعوت برای شرکت‌کنندگان را کپی کرده و با آن‌ها به اشتراک بگذارید.</p>
-                    </div>
-                    <div>
-                        <h4 class="font-bold mb-2">کنترل‌های داخل جلسه</h4>
-                        <p>در حین جلسه می‌توانید میکروفون و دوربین را کنترل کنید، صفحه خود را به اشتراک بگذارید یا جلسه را ضبط کنید.</p>
+                        <div>
+                            <h4 class="font-bold mb-2">دعوت شرکت‌کنندگان</h4>
+                            <p>پس از ایجاد اتاق، لینک دعوت برای شرکت‌کنندگان را کپی کرده و با آن‌ها به اشتراک بگذارید. همچنین می‌توانید QR کد را نمایش دهید.</p>
+                        </div>
+                        <div>
+                            <h4 class="font-bold mb-2">کنترل‌های داخل جلسه</h4>
+                            <p>در حین جلسه می‌توانید میکروفون و دوربین را کنترل کنید یا صفحه خود را به اشتراک بگذارید. برای وضعیت واقعی شبکه، از navigator.connection استفاده می‌شود.</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    // --- تعریف المان‌ها ---
-    const elements = {
-        appContainer: document.getElementById('appContainer'),
-        roomCreationSection: document.getElementById('roomCreationSection'),
-        inCallSection: document.getElementById('inCallSection'),
-        createRoomBtn: document.getElementById('createRoomBtn'),
-        endCallBtn: document.getElementById('endCallBtn'),
-        roomNameInput: document.getElementById('roomNameInput'),
-        roomPasswordInput: document.getElementById('roomPasswordInput'),
-        roomNameError: document.getElementById('roomNameError'),
-        roomPasswordError: document.getElementById('roomPasswordError'),
-        guestLinkInput: document.getElementById('guestLinkInput'),
-        copyGuestLinkBtn: document.getElementById('copyGuestLinkBtn'),
-        shareGuestLinkBtn: document.getElementById('shareGuestLinkBtn'),
-        broadcastContainer: document.getElementById('broadcastContainer'),
-        broadcastLinkInput: document.getElementById('broadcastLinkInput'),
-        copyBroadcastLinkBtn: document.getElementById('copyBroadcastLinkBtn'),
-        proaudioToggle: document.getElementById('proaudio-toggle'),
-        broadcastToggle: document.getElementById('broadcast-toggle'),
-        audioonlyToggle: document.getElementById('audioonly-toggle'),
-        muteToggle: document.getElementById('mute-toggle'),
-        lowdataToggle: document.getElementById('lowdata-toggle'),
-        recordToggle: document.getElementById('record-toggle'),
-        nochatToggle: document.getElementById('nochat-toggle'),
-        soloToggle: document.getElementById('solo-toggle'),
-        muteallToggle: document.getElementById('muteall-toggle'),
-        presentToggle: document.getElementById('present-toggle'),
-        screenToggle: document.getElementById('screen-toggle'),
-        gridToggle: document.getElementById('grid-toggle'),
-        soundsToggle: document.getElementById('sounds-toggle'),
-        autopassToggle: document.getElementById('autopass-toggle'),
-        loggingToggle: document.getElementById('logging-toggle'),
-        resolutionSelect: document.getElementById('resolution-select'),
-        framerateSelect: document.getElementById('framerate-select'),
-        maxviewersSelect: document.getElementById('maxviewers-select'),
-        vdoFrame: document.getElementById('vdoFrame'),
-        mainTitle: document.getElementById('mainTitle'),
-        statusIndicator: document.getElementById('statusIndicator'),
-        copyMessage: document.getElementById('copyMessage'),
-        overlay: document.getElementById('overlay'),
-        themeToggle: document.getElementById('themeToggle'),
-        helpButton: document.getElementById('helpButton'),
-        helpModal: document.getElementById('helpModal'),
-        closeHelpBtn: document.getElementById('closeHelpBtn'),
-        sessionTimer: document.getElementById('session-timer'),
-        networkQuality: document.getElementById('network-quality'),
-        participantNumber: document.getElementById('participant-number'),
-        signalBars: document.querySelectorAll('.signal-bar'),
-        settingsBadge: document.getElementById('settingsBadge'),
-        advancedSettingsDetails: document.getElementById('advancedSettingsDetails'),
-        tabButtons: document.querySelectorAll('.tab-button'),
-        tabContents: document.querySelectorAll('.tab-content'),
-        generateRoomNameBtn: document.getElementById('generateRoomNameBtn'),
-        generatePasswordBtn: document.getElementById('generatePasswordBtn'),
-        muteAudioBtn: document.getElementById('muteAudioBtn'),
-        stopVideoBtn: document.getElementById('stopVideoBtn'),
-        shareScreenBtn: document.getElementById('shareScreenBtn'),
-        recordBtn: document.getElementById('recordBtn')
-    };
+    <script>
+    'use strict';
+    document.addEventListener('DOMContentLoaded', () => {
+        const elements = {
+            appContainer: document.getElementById('appContainer'),
+            roomCreationSection: document.getElementById('roomCreationSection'),
+            inCallSection: document.getElementById('inCallSection'),
+            createRoomBtn: document.getElementById('createRoomBtn'),
+            endCallBtn: document.getElementById('endCallBtn'),
+            roomNameInput: document.getElementById('roomNameInput'),
+            roomPasswordInput: document.getElementById('roomPasswordInput'),
+            roomNameError: document.getElementById('roomNameError'),
+            roomPasswordError: document.getElementById('roomPasswordError'),
+            guestLinkInput: document.getElementById('guestLinkInput'),
+            copyGuestLinkBtn: document.getElementById('copyGuestLinkBtn'),
+            shareGuestLinkBtn: document.getElementById('shareGuestLinkBtn'),
+            qrGuestBtn: document.getElementById('qrGuestBtn'),
+            qrGuestContainer: document.getElementById('qrGuestContainer'),
+            broadcastContainer: document.getElementById('broadcastContainer'),
+            broadcastLinkInput: document.getElementById('broadcastLinkInput'),
+            copyBroadcastLinkBtn: document.getElementById('copyBroadcastLinkBtn'),
+            qrBroadcastBtn: document.getElementById('qrBroadcastBtn'),
+            qrBroadcastContainer: document.getElementById('qrBroadcastContainer'),
+            proaudioToggle: document.getElementById('proaudio-toggle'),
+            stereoToggle: document.getElementById('stereo-toggle'),
+            broadcastToggle: document.getElementById('broadcast-toggle'),
+            audioonlyToggle: document.getElementById('audioonly-toggle'),
+            muteToggle: document.getElementById('mute-toggle'),
+            lowdataToggle: document.getElementById('lowdata-toggle'),
+            nochatToggle: document.getElementById('nochat-toggle'),
+            soloToggle: document.getElementById('solo-toggle'),
+            muteallToggle: document.getElementById('muteall-toggle'),
+            presentToggle: document.getElementById('present-toggle'),
+            screenToggle: document.getElementById('screen-toggle'),
+            gridToggle: document.getElementById('grid-toggle'),
+            soundsToggle: document.getElementById('sounds-toggle'),
+            autopassToggle: document.getElementById('autopass-toggle'),
+            loggingToggle: document.getElementById('logging-toggle'),
+            requirepasswordToggle: document.getElementById('requirepassword-toggle'),
+            resolutionSelect: document.getElementById('resolution-select'),
+            framerateSelect: document.getElementById('framerate-select'),
+            bitrateSelect: document.getElementById('bitrate-select'),
+            maxParticipantsInput: document.getElementById('maxParticipantsInput'),
+            stunSelect: document.getElementById('stun-select'),
+            vdoFrame: document.getElementById('vdoFrame'),
+            mainTitle: document.getElementById('mainTitle'),
+            statusIndicator: document.getElementById('statusIndicator'),
+            copyMessage: document.getElementById('copyMessage'),
+            overlay: document.getElementById('overlay'),
+            themeToggle: document.getElementById('themeToggle'),
+            helpButton: document.getElementById('helpButton'),
+            helpModal: document.getElementById('helpModal'),
+            closeHelpBtn: document.getElementById('closeHelpBtn'),
+            sessionTimer: document.getElementById('session-timer'),
+            networkQuality: document.getElementById('network-quality'),
+            participantNumber: document.getElementById('participant-number'),
+            signalBars: document.querySelectorAll('.signal-bar'),
+            settingsBadge: document.getElementById('settingsBadge'),
+            advancedSettingsDetails: document.getElementById('advancedSettingsDetails'),
+            tabButtons: document.querySelectorAll('.tab-button'),
+            tabContents: document.querySelectorAll('.tab-content'),
+            generateRoomNameBtn: document.getElementById('generateRoomNameBtn'),
+            generatePasswordBtn: document.getElementById('generatePasswordBtn'),
+            muteAudioBtn: document.getElementById('muteAudioBtn'),
+            stopVideoBtn: document.getElementById('stopVideoBtn'),
+            shareScreenBtn: document.getElementById('shareScreenBtn'),
+            fullscreenBtn: document.getElementById('fullscreenBtn')
+        };
 
-    // --- متغیرهای نگهداری وضعیت ---
-    let sessionStartTime = null;
-    let sessionTimer = null;
-    let activeSettings = {};
-    
-    // --- توابع کمکی ---
-    const generateId = (length = 6) => Math.random().toString(36).substring(2, length + 2);
-    
-    const showCopyMessage = (message) => {
-        elements.copyMessage.textContent = message;
-        setTimeout(() => { elements.copyMessage.textContent = ''; }, 3000);
-    };
-    
-    const updateStatus = (isActive) => {
-        elements.statusIndicator.classList.toggle('status-active', isActive);
-        elements.roomCreationSection.classList.toggle('hidden', isActive);
-        elements.inCallSection.classList.toggle('hidden', !isActive);
+        let sessionStartTime = null;
+        let sessionTimer = null;
+        let activeSettings = {};
+        let roomHistory = JSON.parse(localStorage.getItem('roomHistory') || '[]');
         
-        if(isActive) {
-            elements.appContainer.classList.add('max-w-7xl');
-            elements.appContainer.classList.remove('max-w-2xl');
-            startSessionTimer();
-            simulateNetworkStatus();
-        } else {
-            elements.appContainer.classList.remove('max-w-7xl');
-            elements.appContainer.classList.add('max-w-2xl');
-            stopSessionTimer();
-        }
+        const generateId = (length = 6) => Math.random().toString(36).substring(2, length + 2);
         
-        setTimeout(() => {
-            if (elements.vdoFrame) {
-                elements.vdoFrame.style.width = "100%";
-                elements.vdoFrame.style.height = "100%";
+        const showCopyMessage = (message, isError = false) => {
+            elements.copyMessage.textContent = message;
+            elements.copyMessage.classList.toggle('text-green-400', !isError);
+            elements.copyMessage.classList.toggle('text-red-400', isError);
+            setTimeout(() => { elements.copyMessage.textContent = ''; }, 3000);
+        };
+        
+        const updateStatus = (isActive) => {
+            elements.statusIndicator.classList.toggle('status-active', isActive);
+            elements.roomCreationSection.classList.toggle('hidden', isActive);
+            elements.inCallSection.classList.toggle('hidden', !isActive);
+            
+            if(isActive) {
+                elements.appContainer.classList.add('max-w-7xl');
+                elements.appContainer.classList.remove('max-w-2xl');
+                startSessionTimer();
+                updateNetworkStatus();
+            } else {
+                elements.appContainer.classList.remove('max-w-7xl');
+                elements.appContainer.classList.add('max-w-2xl');
+                stopSessionTimer();
             }
-        }, 300);
-    };
-    
-    const copyToClipboard = async (inputElement, successMessage) => {
-        try {
-            await navigator.clipboard.writeText(inputElement.value);
-            showCopyMessage(successMessage);
-        } catch (err) {
-            alert('خطا در کپی کردن لینک.');
-        }
-    };
-
-    // --- اعتبارسنجی ورودی‌ها ---
-    const validateInput = (event) => {
-        const inputElement = event.target;
-        const errorElement = document.getElementById(`${inputElement.id}Error`);
-        const regex = /^[a-zA-Z0-9-_]*$/; // حروف انگلیسی، اعداد، خط تیره، زیرخط
-
-        if (!regex.test(inputElement.value)) {
-            inputElement.value = inputElement.value.replace(/[^a-zA-Z0-9-_]/g, '');
-            errorElement.textContent = 'فقط حروف انگلیسی، اعداد، خط تیره و زیرخط مجاز است.';
-            inputElement.classList.add('input-error');
+            
             setTimeout(() => {
+                if (elements.vdoFrame) {
+                    elements.vdoFrame.style.width = "100%";
+                    elements.vdoFrame.style.height = "100%";
+                }
+            }, 300);
+        };
+        
+        const copyToClipboard = async (inputElement, successMessage) => {
+            try {
+                await navigator.clipboard.writeText(inputElement.value);
+                showCopyMessage(successMessage);
+            } catch (err) {
+                showCopyMessage('خطا در کپی کردن لینک.', true);
+            }
+        };
+
+        const showQRCode = (container, text) => {
+            container.innerHTML = '';
+            QRCode.toCanvas(container, text, { width: 128, color: { dark: '#000', light: '#fff' } }, (error) => {
+                if (error) console.error(error);
+            });
+            container.style.display = 'block';
+        };
+
+        const validateInput = (event) => {
+            const inputElement = event.target;
+            const errorElement = document.getElementById(`${inputElement.id}Error`);
+            const regex = /^[a-zA-Z0-9-_]*$/;
+
+            if (!regex.test(inputElement.value)) {
+                inputElement.value = inputElement.value.replace(/[^a-zA-Z0-9-_]/g, '');
+                errorElement.textContent = 'فقط حروف انگلیسی، اعداد، خط تیره و زیرخط مجاز است.';
+                inputElement.classList.add('input-error');
+            } else {
                 errorElement.textContent = '';
                 inputElement.classList.remove('input-error');
-            }, 3000);
-        } else {
-            errorElement.textContent = '';
-            inputElement.classList.remove('input-error');
-        }
-    };
+            }
 
-    // --- ذخیره و بارگذاری تنظیمات ---
-    const saveSettings = () => {
-        const settings = {
-            theme: document.body.classList.contains('light-mode') ? 'light' : 'dark',
-            proaudio: elements.proaudioToggle.checked,
-            broadcast: elements.broadcastToggle.checked,
-            audioonly: elements.audioonlyToggle.checked,
-            mute: elements.muteToggle.checked,
-            lowdata: elements.lowdataToggle.checked,
-            record: elements.recordToggle.checked,
-            nochat: elements.nochatToggle.checked,
-            solo: elements.soloToggle.checked,
-            muteall: elements.muteallToggle.checked,
-            present: elements.presentToggle.checked,
-            screen: elements.screenToggle.checked,
-            grid: elements.gridToggle.checked,
-            sounds: elements.soundsToggle.checked,
-            autopass: elements.autopassToggle.checked,
-            logging: elements.loggingToggle.checked,
-            resolution: elements.resolutionSelect.value,
-            framerate: elements.framerateSelect.value,
-            maxviewers: elements.maxviewersSelect.value,
+            if (inputElement.id === 'roomPasswordInput' && inputElement.value.length < 6 && inputElement.value.length > 0) {
+                errorElement.textContent = 'رمز عبور باید حداقل 6 کاراکتر باشد.';
+                inputElement.classList.add('input-error');
+            }
         };
-        
-        localStorage.setItem('remotevm_settings', JSON.stringify(settings));
-        activeSettings = settings;
-    };
 
-    const loadSettings = () => {
-        try {
-            const settings = JSON.parse(localStorage.getItem('remotevm_settings') || '{}');
+        const saveSettings = () => {
+            const settings = {
+                theme: document.body.classList.contains('light-mode') ? 'light' : 'dark',
+                proaudio: elements.proaudioToggle.checked,
+                stereo: elements.stereoToggle.checked,
+                broadcast: elements.broadcastToggle.checked,
+                audioonly: elements.audioonlyToggle.checked,
+                mute: elements.muteToggle.checked,
+                lowdata: elements.lowdataToggle.checked,
+                nochat: elements.nochatToggle.checked,
+                solo: elements.soloToggle.checked,
+                muteall: elements.muteallToggle.checked,
+                present: elements.presentToggle.checked,
+                screen: elements.screenToggle.checked,
+                grid: elements.gridToggle.checked,
+                sounds: elements.soundsToggle.checked,
+                autopass: elements.autopassToggle.checked,
+                logging: elements.loggingToggle.checked,
+                requirepassword: elements.requirepasswordToggle.checked,
+                resolution: elements.resolutionSelect.value,
+                framerate: elements.framerateSelect.value,
+                bitrate: elements.bitrateSelect.value,
+                maxParticipants: elements.maxParticipantsInput.value,
+                stun: elements.stunSelect.value
+            };
+            
+            localStorage.setItem('remotevm_settings', JSON.stringify(settings));
             activeSettings = settings;
-            
-            // اعمال تنظیمات تم
-            if (settings.theme === 'light') {
-                document.body.classList.add('light-mode');
-                elements.themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
-            }
-            
-            // اعمال سایر تنظیمات
-            if (settings.proaudio !== undefined) elements.proaudioToggle.checked = settings.proaudio;
-            if (settings.broadcast !== undefined) elements.broadcastToggle.checked = settings.broadcast;
-            if (settings.audioonly !== undefined) elements.audioonlyToggle.checked = settings.audioonly;
-            if (settings.mute !== undefined) elements.muteToggle.checked = settings.mute;
-            if (settings.lowdata !== undefined) elements.lowdataToggle.checked = settings.lowdata;
-            if (settings.record !== undefined) elements.recordToggle.checked = settings.record;
-            if (settings.nochat !== undefined) elements.nochatToggle.checked = settings.nochat;
-            if (settings.solo !== undefined) elements.soloToggle.checked = settings.solo;
-            if (settings.muteall !== undefined) elements.muteallToggle.checked = settings.muteall;
-            if (settings.present !== undefined) elements.presentToggle.checked = settings.present;
-            if (settings.screen !== undefined) elements.screenToggle.checked = settings.screen;
-            if (settings.grid !== undefined) elements.gridToggle.checked = settings.grid;
-            if (settings.sounds !== undefined) elements.soundsToggle.checked = settings.sounds;
-            if (settings.autopass !== undefined) elements.autopassToggle.checked = settings.autopass;
-            if (settings.logging !== undefined) elements.loggingToggle.checked = settings.logging;
-            if (settings.resolution) elements.resolutionSelect.value = settings.resolution;
-            if (settings.framerate) elements.framerateSelect.value = settings.framerate;
-            if (settings.maxviewers) elements.maxviewersSelect.value = settings.maxviewers;
-            
-            checkActiveSettings();
-        } catch (error) {
-            console.error('Error loading settings:', error);
-        }
-    };
+        };
 
-    // --- مدیریت تب‌ها ---
-    const setupTabs = () => {
-        elements.tabButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                // فعال کردن دکمه تب
-                elements.tabButtons.forEach(btn => btn.classList.remove('active'));
-                button.classList.add('active');
+        const loadSettings = () => {
+            try {
+                const settings = JSON.parse(localStorage.getItem('remotevm_settings') || '{}');
+                activeSettings = settings;
                 
-                // نمایش محتوای تب
-                const tabId = button.getAttribute('data-tab');
-                elements.tabContents.forEach(content => {
-                    content.classList.remove('active');
-                });
-                document.getElementById(tabId).classList.add('active');
-            });
-        });
-    };
-
-    // --- تولید نام و رمز تصادفی ---
-    const generateRandomName = () => {
-        const adjectives = ['awesome', 'cool', 'bright', 'smart', 'happy', 'clever', 'brilliant', 'super'];
-        const nouns = ['meeting', 'session', 'webinar', 'conference', 'talk', 'stream', 'event', 'gathering'];
-        const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-        const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
-        const randomNum = Math.floor(Math.random() * 1000);
-        
-        return `${randomAdjective}${randomNoun}${randomNum}`;
-    };
-
-    const generateRandomPassword = () => {
-        const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let password = '';
-        for (let i = 0; i < 8; i++) {
-            password += charset.charAt(Math.floor(Math.random() * charset.length));
-        }
-        return password;
-    };
-
-    // --- تایمر جلسه ---
-    const startSessionTimer = () => {
-        sessionStartTime = new Date();
-        elements.sessionTimer.textContent = '00:00:00';
-        
-        sessionTimer = setInterval(() => {
-            const now = new Date();
-            const diff = now - sessionStartTime;
-            
-            const hours = Math.floor(diff / 3600000).toString().padStart(2, '0');
-            const minutes = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
-            const seconds = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
-            
-            elements.sessionTimer.textContent = `${hours}:${minutes}:${seconds}`;
-        }, 1000);
-    };
-
-    const stopSessionTimer = () => {
-        if (sessionTimer) {
-            clearInterval(sessionTimer);
-            sessionTimer = null;
-        }
-    };
-
-    // --- شبیه‌سازی وضعیت اتصال ---
-    const simulateNetworkStatus = () => {
-        const updateNetworkStatus = () => {
-            const quality = Math.floor(Math.random() * 5); // 0-4
-            let qualityText = '';
-            
-            switch(quality) {
-                case 4:
-                    qualityText = 'عالی';
-                    updateSignalBars(4);
-                    break;
-                case 3:
-                    qualityText = 'خوب';
-                    updateSignalBars(3);
-                    break;
-                case 2:
-                    qualityText = 'متوسط';
-                    updateSignalBars(2);
-                    break;
-                case 1:
-                    qualityText = 'ضعیف';
-                    updateSignalBars(1);
-                    break;
-                case 0:
-                    qualityText = 'بسیار ضعیف';
-                    updateSignalBars(0);
-                    break;
-            }
-            
-            elements.networkQuality.textContent = `اتصال: ${qualityText}`;
-            
-            // شبیه‌سازی تغییر تعداد شرکت‌کنندگان
-            if (Math.random() > 0.7) {
-                const participantChange = Math.floor(Math.random() * 3) - 1; // -1, 0, or 1
-                const currentCount = parseInt(elements.participantNumber.textContent);
-                const newCount = Math.max(1, currentCount + participantChange); // حداقل 1 نفر
-                elements.participantNumber.textContent = newCount;
+                if (settings.theme === 'light') {
+                    document.body.classList.add('light-mode');
+                    elements.themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+                }
+                
+                if (settings.proaudio !== undefined) elements.proaudioToggle.checked = settings.proaudio;
+                if (settings.stereo !== undefined) elements.stereoToggle.checked = settings.stereo;
+                if (settings.broadcast !== undefined) elements.broadcastToggle.checked = settings.broadcast;
+                if (settings.audioonly !== undefined) elements.audioonlyToggle.checked = settings.audioonly;
+                if (settings.mute !== undefined) elements.muteToggle.checked = settings.mute;
+                if (settings.lowdata !== undefined) elements.lowdataToggle.checked = settings.lowdata;
+                if (settings.nochat !== undefined) elements.nochatToggle.checked = settings.nochat;
+                if (settings.solo !== undefined) elements.soloToggle.checked = settings.solo;
+                if (settings.muteall !== undefined) elements.muteallToggle.checked = settings.muteall;
+                if (settings.present !== undefined) elements.presentToggle.checked = settings.present;
+                if (settings.screen !== undefined) elements.screenToggle.checked = settings.screen;
+                if (settings.grid !== undefined) elements.gridToggle.checked = settings.grid;
+                if (settings.sounds !== undefined) elements.soundsToggle.checked = settings.sounds;
+                if (settings.autopass !== undefined) elements.autopassToggle.checked = settings.autopass;
+                if (settings.logging !== undefined) elements.loggingToggle.checked = settings.logging;
+                if (settings.requirepassword !== undefined) elements.requirepasswordToggle.checked = settings.requirepassword;
+                if (settings.resolution) elements.resolutionSelect.value = settings.resolution;
+                if (settings.framerate) elements.framerateSelect.value = settings.framerate;
+                if (settings.bitrate) elements.bitrateSelect.value = settings.bitrate;
+                if (settings.maxParticipants) elements.maxParticipantsInput.value = settings.maxParticipants;
+                if (settings.stun) elements.stunSelect.value = settings.stun;
+                
+                checkActiveSettings();
+            } catch (error) {
+                console.error('Error loading settings:', error);
             }
         };
-        
-        // بروزرسانی هر 5 ثانیه
-        updateNetworkStatus();
-        setInterval(updateNetworkStatus, 5000);
-    };
 
-    const updateSignalBars = (activeCount) => {
-        elements.signalBars.forEach((bar, index) => {
-            if (index < activeCount) {
-                bar.classList.remove('inactive');
-            } else {
-                bar.classList.add('inactive');
-            }
-        });
-    };
-
-    // --- بررسی و نمایش وضعیت تنظیمات فعال ---
-    const checkActiveSettings = () => {
-        const toggles = [
-            elements.proaudioToggle, elements.broadcastToggle, elements.audioonlyToggle,
-            elements.muteToggle, elements.lowdataToggle, elements.recordToggle,
-            elements.nochatToggle, elements.soloToggle, elements.muteallToggle,
-            elements.presentToggle, elements.screenToggle, elements.gridToggle,
-            elements.soundsToggle, elements.autopassToggle, elements.loggingToggle
-        ];
-        
-        const selects = [
-            elements.resolutionSelect, elements.framerateSelect, elements.maxviewersSelect
-        ];
-        
-        const hasActiveSettings = 
-            toggles.some(toggle => toggle.checked) || 
-            selects.some(select => select.value !== '');
-        
-        elements.settingsBadge.classList.toggle('hidden', !hasActiveSettings);
-    };
-
-    // --- منطق اصلی برنامه: ایجاد اتاق ---
-    const createRoom = () => {
-        // اعتبارسنجی فرم
-        if (elements.roomNameInput.value.trim() === '') {
-            elements.roomNameInput.value = generateRandomName();
-        }
-        
-        const roomName = elements.roomNameInput.value.trim().replace(/\s+/g, '-');
-        const roomPassword = elements.roomPasswordInput.value.trim();
-        const directorViewPassword = generateId(16);
-        const baseURL = "https://live.remotevm.ir/";
-        const stunServer = "stun:stun.l.google.com:19302";
-        
-        // ساخت پارامترهای پایه
-        const baseParams = { stun: stunServer };
-        
-        // اضافه کردن پارامترهای صدا و تصویر
-        if (elements.proaudioToggle.checked) baseParams.proaudio = '';
-        if (elements.audioonlyToggle.checked) baseParams.audioonly = '';
-        if (elements.muteToggle.checked) baseParams.mute = '';
-        if (elements.lowdataToggle.checked) baseParams.lowdata = '';
-        
-        if (elements.resolutionSelect.value) baseParams.quality = elements.resolutionSelect.value;
-        if (elements.framerateSelect.value) baseParams.framerate = elements.framerateSelect.value;
-        
-        // پارامترهای امنیتی
-        if (elements.soloToggle.checked) baseParams.solo = '';
-        if (elements.muteallToggle.checked) baseParams.muteall = '';
-        if (elements.autopassToggle.checked) baseParams.autopass = '';
-        if (elements.loggingToggle.checked) baseParams.logging = '';
-        
-        // پارامترهای چیدمان
-        if (elements.presentToggle.checked) baseParams.present = '';
-        if (elements.screenToggle.checked) baseParams.screenshare = '';
-        if (elements.gridToggle.checked) baseParams.grid = '';
-        if (elements.maxviewersSelect.value) baseParams.maxviewers = elements.maxviewersSelect.value;
-        
-        // پارامترهای دیگر
-        if (elements.recordToggle.checked) baseParams.record = '';
-        if (elements.nochatToggle.checked) baseParams.nochat = '';
-        if (elements.soundsToggle.checked) baseParams.sounds = '';
-        
-        // ساخت پارامترهای مدیر
-        const directorParams = new URLSearchParams({ ...baseParams, director: roomName, proxy: '' });
-        if (roomPassword) directorParams.append('password', roomPassword);
-        
-        // ساخت پارامترهای مهمان
-        const guestParams = new URLSearchParams({ ...baseParams, room: roomName, autoview: '' });
-        if (roomPassword) guestParams.append('password', roomPassword);
-        elements.guestLinkInput.value = `${baseURL}?${guestParams.toString()}`;
-        
-        // اگر برودکست فعال است
-        if (elements.broadcastToggle.checked) {
-            const broadcastParams = new URLSearchParams({ ...baseParams, view: roomName, password: directorViewPassword });
-            elements.broadcastLinkInput.value = `${baseURL}?${broadcastParams.toString()}`;
-            directorParams.append('broadcast', directorViewPassword);
-            elements.broadcastContainer.classList.remove('hidden');
-        } else {
-            elements.broadcastContainer.classList.add('hidden');
-        }
-
-        // بارگذاری iframe و بروزرسانی وضعیت
-        elements.vdoFrame.src = `${baseURL}?${directorParams.toString()}`;
-        elements.mainTitle.textContent = `پنل مدیریت: ${roomName}`;
-        updateStatus(true);
-        
-        // ذخیره تنظیمات
-        saveSettings();
-    };
-
-    // --- رویدادهای کلیک دکمه‌ها ---
-    const setupEventListeners = () => {
-        // اعتبارسنجی ورودی‌ها
-        elements.roomNameInput.addEventListener('input', validateInput);
-        elements.roomPasswordInput.addEventListener('input', validateInput);
-        
-        // رویدادهای دکمه‌های اصلی
-        elements.createRoomBtn.addEventListener('click', createRoom);
-        elements.endCallBtn.addEventListener('click', () => {
-            elements.vdoFrame.src = 'about:blank';
-            updateStatus(false);
-            elements.roomNameInput.value = '';
-            elements.roomPasswordInput.value = '';
-        });
-        
-        // کپی کردن لینک‌ها
-        elements.copyGuestLinkBtn.addEventListener('click', () => 
-            copyToClipboard(elements.guestLinkInput, 'لینک شرکت‌کنندگان کپی شد!'));
-        elements.copyBroadcastLinkBtn.addEventListener('click', () => 
-            copyToClipboard(elements.broadcastLinkInput, 'لینک نمایش پیام کپی شد!'));
-        
-        // اشتراک گذاری لینک
-        elements.shareGuestLinkBtn.addEventListener('click', async () => {
-            if (navigator.share) {
-                try {
-                    await navigator.share({
-                        title: 'دعوت به کنفرانس آنلاین',
-                        text: 'برای پیوستن به کنفرانس روی لینک زیر کلیک کنید:',
-                        url: elements.guestLinkInput.value
+        const setupTabs = () => {
+            elements.tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    elements.tabButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    
+                    const tabId = button.getAttribute('data-tab');
+                    elements.tabContents.forEach(content => {
+                        content.classList.remove('active');
                     });
-                    showCopyMessage('لینک با موفقیت به اشتراک گذاشته شد!');
-                } catch (err) {
-                    console.error('خطا در اشتراک‌گذاری:', err);
-                }
-            } else {
-                copyToClipboard(elements.guestLinkInput, 'لینک کپی شد! آن را به اشتراک بگذارید.');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+        };
+
+        const generateRandomName = () => {
+            const adjectives = ['awesome', 'cool', 'bright', 'smart', 'happy', 'clever', 'brilliant', 'super'];
+            const nouns = ['meeting', 'session', 'webinar', 'conference', 'talk', 'stream', 'event', 'gathering'];
+            const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+            const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
+            const randomNum = Math.floor(Math.random() * 1000);
+            
+            return `${randomAdjective}${randomNoun}${randomNum}`;
+        };
+
+        const generateRandomPassword = () => {
+            const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let password = '';
+            for (let i = 0; i < 8; i++) {
+                password += charset.charAt(Math.floor(Math.random() * charset.length));
             }
-        });
-        
-        // تغییر تم
-        elements.themeToggle.addEventListener('click', () => {
-            const isLightMode = document.body.classList.toggle('light-mode');
-            elements.themeToggle.innerHTML = isLightMode ? 
-                '<i class="fas fa-sun"></i>' : 
-                '<i class="fas fa-moon"></i>';
+            return password;
+        };
+
+        const startSessionTimer = () => {
+            sessionStartTime = new Date();
+            elements.sessionTimer.textContent = '00:00:00';
+            
+            sessionTimer = setInterval(() => {
+                const now = new Date();
+                const diff = now - sessionStartTime;
+                
+                const hours = Math.floor(diff / 3600000).toString().padStart(2, '0');
+                const minutes = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+                const seconds = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+                
+                elements.sessionTimer.textContent = `${hours}:${minutes}:${seconds}`;
+            }, 1000);
+        };
+
+        const stopSessionTimer = () => {
+            if (sessionTimer) {
+                clearInterval(sessionTimer);
+                sessionTimer = null;
+            }
+        };
+
+        const updateNetworkStatus = () => {
+            if ('connection' in navigator) {
+                const connection = navigator.connection;
+                let qualityText = '📡';
+                let activeBars = 0;
+
+                if (connection.downlink) {
+                    if (connection.downlink > 10) {
+                        qualityText = 'عالی';
+                        activeBars = 4;
+                    } else if (connection.downlink > 5) {
+                        qualityText = 'خوب';
+                        activeBars = 3;
+                    } else if (connection.downlink > 2) {
+                        qualityText = 'متوسط';
+                        activeBars = 2;
+                    } else if (connection.downlink > 0) {
+                        qualityText = 'ضعیف';
+                        activeBars = 1;
+                    } else {
+                        qualityText = 'بسیار ضعیف';
+                        activeBars = 0;
+                    }
+                }
+
+                elements.networkQuality.textContent = `اتصال: ${qualityText} ${connection.type || '🌐'}`;
+                updateSignalBars(activeBars);
+            } else {
+                elements.networkQuality.textContent = 'اتصال: پشتیبانی نمی‌شود';
+            }
+        };
+
+        const updateSignalBars = (activeCount) => {
+            elements.signalBars.forEach((bar, index) => {
+                bar.classList.toggle('inactive', index >= activeCount);
+            });
+        };
+
+        const checkActiveSettings = () => {
+            const toggles = [
+                elements.proaudioToggle, elements.stereoToggle, elements.broadcastToggle, elements.audioonlyToggle,
+                elements.muteToggle, elements.lowdataToggle,
+                elements.nochatToggle, elements.soloToggle, elements.muteallToggle,
+                elements.presentToggle, elements.screenToggle, elements.gridToggle,
+                elements.soundsToggle, elements.autopassToggle, elements.loggingToggle,
+                elements.requirepasswordToggle
+            ];
+            
+            const selects = [
+                elements.resolutionSelect, elements.framerateSelect, elements.bitrateSelect, elements.stunSelect
+            ];
+            
+            const hasActiveSettings = 
+                toggles.some(toggle => toggle.checked) || 
+                selects.some(select => select.value !== '') ||
+                elements.maxParticipantsInput.value !== '10';
+            
+            elements.settingsBadge.classList.toggle('hidden', !hasActiveSettings);
+        };
+
+        const createRoom = () => {
+            if (elements.roomNameInput.value.trim() === '') {
+                elements.roomNameInput.value = generateRandomName();
+            }
+            if (elements.roomPasswordInput.value.trim() !== '' && elements.roomPasswordInput.value.length < 6) {
+                showCopyMessage('رمز عبور باید حداقل 6 کاراکتر باشد.', true);
+                return;
+            }
+            
+            const roomName = elements.roomNameInput.value.trim().replace(/\s+/g, '-');
+            const roomPassword = elements.roomPasswordInput.value.trim();
+            const directorViewPassword = generateId(16);
+            const baseURL = "https://live.remotevm.ir/";
+            const stunServer = elements.stunSelect.value;
+            
+            const baseParams = {};
+            if (stunServer) baseParams.stun = stunServer;
+            
+            if (elements.proaudioToggle.checked) baseParams.proaudio = '';
+            if (elements.stereoToggle.checked) baseParams.stereo = '';
+            if (elements.audioonlyToggle.checked) baseParams.audioonly = '';
+            if (elements.muteToggle.checked) baseParams.mute = '';
+            if (elements.lowdataToggle.checked) baseParams.lowdata = '';
+            if (elements.resolutionSelect.value) baseParams.quality = elements.resolutionSelect.value;
+            if (elements.framerateSelect.value) baseParams.framerate = elements.framerateSelect.value;
+            if (elements.bitrateSelect.value) baseParams.bitrate = elements.bitrateSelect.value;
+            
+            if (elements.soloToggle.checked) baseParams.solo = '';
+            if (elements.muteallToggle.checked) baseParams.muteall = '';
+            if (elements.autopassToggle.checked) baseParams.autopass = '';
+            if (elements.loggingToggle.checked) baseParams.logging = '';
+            if (elements.requirepasswordToggle.checked && roomPassword) baseParams.requirepassword = '';
+            
+            if (elements.presentToggle.checked) baseParams.present = '';
+            if (elements.screenToggle.checked) baseParams.screenshare = '';
+            if (elements.gridToggle.checked) baseParams.grid = '';
+            if (elements.maxParticipantsInput.value) baseParams.maxviewers = elements.maxParticipantsInput.value;
+            
+            if (elements.nochatToggle.checked) baseParams.nochat = '';
+            if (elements.soundsToggle.checked) baseParams.sounds = '';
+            
+            const directorParams = new URLSearchParams({ ...baseParams, director: roomName, proxy: '' });
+            if (roomPassword) directorParams.append('password', roomPassword);
+            
+            const guestParams = new URLSearchParams({ ...baseParams, room: roomName, autoview: '' });
+            if (roomPassword) guestParams.append('password', roomPassword);
+            elements.guestLinkInput.value = `${baseURL}?${guestParams.toString()}`;
+            
+            if (elements.broadcastToggle.checked) {
+                const broadcastParams = new URLSearchParams({ ...baseParams, view: roomName, password: directorViewPassword });
+                elements.broadcastLinkInput.value = `${baseURL}?${broadcastParams.toString()}`;
+                directorParams.append('broadcast', directorViewPassword);
+                elements.broadcastContainer.classList.remove('hidden');
+            } else {
+                elements.broadcastContainer.classList.add('hidden');
+            }
+
+            elements.vdoFrame.src = `${baseURL}?${directorParams.toString()}`;
+            elements.mainTitle.textContent = `پنل مدیریت: ${roomName}`;
+            updateStatus(true);
+            
+            roomHistory.push({ name: roomName, password: roomPassword, date: new Date().toLocaleString() });
+            localStorage.setItem('roomHistory', JSON.stringify(roomHistory.slice(-10)));
             
             saveSettings();
-        });
-        
-        // نمایش راهنما
-        elements.helpButton.addEventListener('click', () => {
-            elements.helpModal.classList.remove('hidden');
-        });
-        
-        elements.closeHelpBtn.addEventListener('click', () => {
-            elements.helpModal.classList.add('hidden');
-        });
-        
-        // بستن مودال با کلیک بیرون از آن
-        elements.helpModal.addEventListener('click', (e) => {
-            if (e.target === elements.helpModal) {
-                elements.helpModal.classList.add('hidden');
-            }
-        });
-        
-        // تولید نام و رمز تصادفی
-        elements.generateRoomNameBtn.addEventListener('click', () => {
-            elements.roomNameInput.value = generateRandomName();
-        });
-        
-        elements.generatePasswordBtn.addEventListener('click', () => {
-            elements.roomPasswordInput.value = generateRandomPassword();
-        });
-        
-        // دکمه‌های کنترل در حین کنفرانس
-        elements.muteAudioBtn.addEventListener('click', () => {
-            alert('این قابلیت در حال حاضر از طریق رابط RemoteVm قابل استفاده است');
-        });
-        
-        elements.stopVideoBtn.addEventListener('click', () => {
-            alert('این قابلیت در حال حاضر از طریق رابط RemoteVm قابل استفاده است');
-        });
-        
-        elements.shareScreenBtn.addEventListener('click', () => {
-            alert('این قابلیت در حال حاضر از طریق رابط RemoteVm قابل استفاده است');
-        });
-        
-        elements.recordBtn.addEventListener('click', () => {
-            alert('این قابلیت در حال حاضر از طریق رابط RemoteVm قابل استفاده است');
-        });
-        
-        // رویداد تغییر تنظیمات
-        const settingsElements = [
-            ...document.querySelectorAll('.toggle-switch input'),
-            ...document.querySelectorAll('select')
-        ];
-        
-        settingsElements.forEach(element => {
-            element.addEventListener('change', () => {
-                checkActiveSettings();
+        };
+
+        const setupEventListeners = () => {
+            elements.roomNameInput.addEventListener('input', validateInput);
+            elements.roomPasswordInput.addEventListener('input', validateInput);
+            
+            elements.createRoomBtn.addEventListener('click', createRoom);
+            elements.endCallBtn.addEventListener('click', () => {
+                elements.vdoFrame.src = 'about:blank';
+                updateStatus(false);
+                elements.roomNameInput.value = '';
+                elements.roomPasswordInput.value = '';
             });
-        });
-        
-        // اضافه کردن رویداد برای تغییر اندازه صفحه
-        window.addEventListener('resize', () => {
-            if (elements.vdoFrame) {
-                elements.vdoFrame.style.width = "100%";
-                elements.vdoFrame.style.height = "100%";
+            
+            elements.copyGuestLinkBtn.addEventListener('click', () => 
+                copyToClipboard(elements.guestLinkInput, 'لینک شرکت‌کنندگان کپی شد!'));
+            elements.copyBroadcastLinkBtn.addEventListener('click', () => 
+                copyToClipboard(elements.broadcastLinkInput, 'لینک نمایش پیام کپی شد!'));
+            
+            elements.qrGuestBtn.addEventListener('click', () => {
+                showQRCode(elements.qrGuestContainer, elements.guestLinkInput.value);
+            });
+            elements.qrBroadcastBtn.addEventListener('click', () => {
+                showQRCode(elements.qrBroadcastContainer, elements.broadcastLinkInput.value);
+            });
+            
+            elements.shareGuestLinkBtn.addEventListener('click', async () => {
+                if (navigator.share) {
+                    try {
+                        await navigator.share({
+                            title: 'دعوت به کنفرانس آنلاین',
+                            text: 'برای پیوستن به کنفرانس روی لینک زیر کلیک کنید:',
+                            url: elements.guestLinkInput.value
+                        });
+                        showCopyMessage('لینک با موفقیت به اشتراک گذاشته شد!');
+                    } catch (err) {
+                        console.error('خطا در اشتراک‌گذاری:', err);
+                    }
+                } else {
+                    copyToClipboard(elements.guestLinkInput, 'لینک کپی شد! آن را به اشتراک بگذارید.');
+                }
+            });
+            
+            elements.themeToggle.addEventListener('click', () => {
+                const isLightMode = document.body.classList.toggle('light-mode');
+                elements.themeToggle.innerHTML = isLightMode ? 
+                    '<i class="fas fa-sun"></i>' : 
+                    '<i class="fas fa-moon"></i>';
+                
+                saveSettings();
+            });
+            
+            elements.helpButton.addEventListener('click', () => {
+                elements.helpModal.classList.remove('hidden');
+            });
+            
+            elements.closeHelpBtn.addEventListener('click', () => {
+                elements.helpModal.classList.add('hidden');
+            });
+            
+            elements.helpModal.addEventListener('click', (e) => {
+                if (e.target === elements.helpModal) {
+                    elements.helpModal.classList.add('hidden');
+                }
+            });
+            
+            elements.generateRoomNameBtn.addEventListener('click', () => {
+                elements.roomNameInput.value = generateRandomName();
+            });
+            
+            elements.generatePasswordBtn.addEventListener('click', () => {
+                elements.roomPasswordInput.value = generateRandomPassword();
+            });
+            
+            elements.muteAudioBtn.addEventListener('click', () => {
+                elements.vdoFrame.contentWindow.postMessage({ action: 'mute' }, '*');
+                showCopyMessage('میکروفون قطع شد');
+            });
+            
+            elements.stopVideoBtn.addEventListener('click', () => {
+                elements.vdoFrame.contentWindow.postMessage({ action: 'stopVideo' }, '*');
+                showCopyMessage('تصویر قطع شد');
+            });
+            
+            elements.shareScreenBtn.addEventListener('click', () => {
+                elements.vdoFrame.contentWindow.postMessage({ action: 'shareScreen' }, '*');
+                showCopyMessage('اشتراک صفحه شروع شد');
+            });
+            
+            elements.fullscreenBtn.addEventListener('click', () => {
+                if (elements.vdoFrame.requestFullscreen) {
+                    elements.vdoFrame.requestFullscreen();
+                } else if (elements.vdoFrame.webkitRequestFullscreen) {
+                    elements.vdoFrame.webkitRequestFullscreen();
+                }
+            });
+            
+            const settingsElements = [
+                ...document.querySelectorAll('.toggle-switch input'),
+                ...document.querySelectorAll('select'),
+                elements.maxParticipantsInput
+            ];
+            
+            settingsElements.forEach(element => {
+                element.addEventListener('change', () => {
+                    checkActiveSettings();
+                });
+            });
+            
+            window.addEventListener('resize', () => {
+                if (elements.vdoFrame) {
+                    elements.vdoFrame.style.width = "100%";
+                    elements.vdoFrame.style.height = "100%";
+                }
+            });
+
+            if ('connection' in navigator) {
+                navigator.connection.addEventListener('change', updateNetworkStatus);
             }
-        });
-    };
+        };
 
-    // --- راه‌اندازی اولیه ---
-    const init = () => {
-        setupTabs();
-        setupEventListeners();
-        loadSettings();
-        setTimeout(() => { elements.overlay.classList.add('hidden'); }, 1200);
-    };
+        const init = () => {
+            setupTabs();
+            setupEventListeners();
+            loadSettings();
+            updateNetworkStatus();
+            setTimeout(() => { elements.overlay.classList.add('hidden'); }, 1200);
+        };
 
-    // شروع برنامه
-    init();
-});
-</script>
+        init();
+    });
+    </script>
 </body>
 </html>
