@@ -362,7 +362,7 @@
         }
         
         .qr-container { display: none; margin-top: 10px; text-align: center; }
-        .qr-container canvas { border: 2px solid var(--neon-blue); border-radius: 8px; }
+        .qr-container canvas { border: 2px solid var(--neon-blue); border-radius: 8px; background: #fff; }
         
         /* === STYLES for Loader and Help Popup === */
         #iframe-loader {
@@ -445,6 +445,58 @@
             }
         }
         /* === END of NEW Styles === */
+
+        /* === NEW: Styles for QR Code Popup === */
+        #qrPopup {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+        }
+        #qrPopup:not(.hidden) {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .qr-popup-content {
+            background: rgba(10, 10, 26, 0.6);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 191, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            padding: 2rem;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            position: relative;
+        }
+        .light-mode .qr-popup-content {
+            background: rgba(240, 240, 250, 0.7);
+            border: 1px solid rgba(0, 128, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .qr-popup-content canvas {
+            border: 2px solid var(--neon-blue);
+            border-radius: 8px;
+            background: #fff;
+            margin: 1rem auto;
+        }
+        .qr-popup-content h3 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: var(--dark-text);
+        }
+        .light-mode .qr-popup-content h3 {
+            color: var(--light-text);
+        }
+        /* === END of QR Popup Styles === */
 
         @media (max-width: 600px) {
             #iframe-container {
@@ -565,7 +617,6 @@
                                 <div class="tab-button" data-tab="other">سایر</div>
                             </div>
                             
-                            <!-- CORRECTED: Audio/Video Tab with Grid Layout -->
                             <div class="tab-content active" id="audio-video">
                                 <div class="settings-grid">
                                     <div class="setting-item">
@@ -732,7 +783,6 @@
                                         <i class="fas fa-qrcode"></i>
                                     </button>
                                 </div>
-                                <div id="qrGuestContainer" class="qr-container"></div>
                             </div>
                             <div id="broadcastContainer" class="hidden">
                                 <label class="block font-medium text-cyan-300">لینک نمایش پیام‌ها (برای OBS):</label>
@@ -745,7 +795,6 @@
                                         <i class="fas fa-qrcode"></i>
                                     </button>
                                 </div>
-                                <div id="qrBroadcastContainer" class="qr-container"></div>
                             </div>
                         </div>
                         
@@ -819,9 +868,19 @@
             </div>
         </div>
 
+        <!-- NEW: QR Code Popup -->
+        <div id="qrPopup" class="fixed inset-0 hidden">
+            <div class="qr-popup-content">
+                <h3 id="qrPopupTitle"></h3>
+                <canvas id="qrPopupCanvas"></canvas>
+                <button id="closeQrPopupBtn" class="btn p-2">
+                    <i class="fas fa-times"></i> بستن
+                </button>
+            </div>
+        </div>
+
     <script>
     'use strict';
-    // The JavaScript code remains the same as the previous version.
     document.addEventListener('DOMContentLoaded', () => {
         const elements = {
             appContainer: document.getElementById('appContainer'),
@@ -838,11 +897,13 @@
             shareGuestLinkBtn: document.getElementById('shareGuestLinkBtn'),
             qrGuestBtn: document.getElementById('qrGuestBtn'),
             qrGuestContainer: document.getElementById('qrGuestContainer'),
+            qrGuestCanvas: document.getElementById('qrGuestCanvas'),
             broadcastContainer: document.getElementById('broadcastContainer'),
             broadcastLinkInput: document.getElementById('broadcastLinkInput'),
             copyBroadcastLinkBtn: document.getElementById('copyBroadcastLinkBtn'),
             qrBroadcastBtn: document.getElementById('qrBroadcastBtn'),
             qrBroadcastContainer: document.getElementById('qrBroadcastContainer'),
+            qrBroadcastCanvas: document.getElementById('qrBroadcastCanvas'),
             proaudioToggle: document.getElementById('proaudio-toggle'),
             stereoToggle: document.getElementById('stereo-toggle'),
             broadcastToggle: document.getElementById('broadcast-toggle'),
@@ -887,7 +948,11 @@
             muteAudioBtn: document.getElementById('muteAudioBtn'),
             stopVideoBtn: document.getElementById('stopVideoBtn'),
             shareScreenBtn: document.getElementById('shareScreenBtn'),
-            fullscreenBtn: document.getElementById('fullscreenBtn')
+            fullscreenBtn: document.getElementById('fullscreenBtn'),
+            qrPopup: document.getElementById('qrPopup'),
+            qrPopupCanvas: document.getElementById('qrPopupCanvas'),
+            qrPopupTitle: document.getElementById('qrPopupTitle'),
+            closeQrPopupBtn: document.getElementById('closeQrPopupBtn')
         };
 
         let sessionStartTime = null;
@@ -918,6 +983,7 @@
                 elements.appContainer.classList.remove('max-w-7xl');
                 elements.appContainer.classList.add('max-w-2xl');
                 stopSessionTimer();
+                elements.qrPopup.classList.add('hidden');
             }
             
             setTimeout(() => {
@@ -937,12 +1003,17 @@
             }
         };
 
-        const showQRCode = (container, text) => {
-            container.innerHTML = '';
-            QRCode.toCanvas(container, text, { width: 128, color: { dark: '#000', light: '#fff' } }, (error) => {
-                if (error) console.error(error);
+        const showQRCodeInPopup = (title, text) => {
+            elements.qrPopupTitle.textContent = title;
+            elements.qrPopupCanvas.innerHTML = '';
+            QRCode.toCanvas(elements.qrPopupCanvas, text, { width: 200 }, (error) => {
+                if (error) {
+                    console.error('QR Code generation error:', error);
+                    showCopyMessage('خطا در تولید QR کد.', true);
+                } else {
+                    elements.qrPopup.classList.remove('hidden');
+                }
             });
-            container.style.display = 'block';
         };
 
         const validateInput = (event) => {
@@ -1230,6 +1301,7 @@
                 updateStatus(false);
                 elements.roomNameInput.value = '';
                 elements.roomPasswordInput.value = '';
+                elements.qrPopup.classList.add('hidden');
             });
             
             elements.vdoFrame.addEventListener('load', () => {
@@ -1242,10 +1314,27 @@
                 copyToClipboard(elements.broadcastLinkInput, 'لینک نمایش پیام کپی شد!'));
             
             elements.qrGuestBtn.addEventListener('click', () => {
-                showQRCode(elements.qrGuestContainer, elements.guestLinkInput.value);
+                const link = elements.guestLinkInput.value;
+                if (link) {
+                    showQRCodeInPopup('QR کد دعوت شرکت‌کنندگان', link);
+                }
             });
+
             elements.qrBroadcastBtn.addEventListener('click', () => {
-                showQRCode(elements.qrBroadcastContainer, elements.broadcastLinkInput.value);
+                const link = elements.broadcastLinkInput.value;
+                if (link) {
+                    showQRCodeInPopup('QR کد نمایش پیام‌ها', link);
+                }
+            });
+
+            elements.closeQrPopupBtn.addEventListener('click', () => {
+                elements.qrPopup.classList.add('hidden');
+            });
+
+            elements.qrPopup.addEventListener('click', (e) => {
+                if (e.target === elements.qrPopup) {
+                    elements.qrPopup.classList.add('hidden');
+                }
             });
             
             elements.shareGuestLinkBtn.addEventListener('click', async () => {
