@@ -372,7 +372,7 @@
         .toggle-switch input:checked + .slider { 
             background-color: rgba(57, 255, 20, 0.3); 
             border-color: var(--neon-green); 
-            box-shadow:```html
+            box-shadow: 0 0 10px var(--neon-green)
  0 0 10px var(--neon-green); 
         }
         
@@ -2321,8 +2321,8 @@ modal-backdrop hidden" role="dialog" aria-labelledby="confirmModalTitle" aria-mo
             // Build URL parameters
             buildParams: () => {
                 const baseParams = {};
-                const stunServer = elements.stunSelect.value;
 
+                const stunServer = elements.stunSelect.value;
                 if (stunServer) baseParams.stun = stunServer;
 
                 // Audio/Video settings
@@ -2354,6 +2354,11 @@ modal-backdrop hidden" role="dialog" aria-labelledby="confirmModalTitle" aria-mo
                 if (elements.nochatToggle.checked) baseParams.nochat = '';
                 if (elements.soundsToggle.checked) baseParams.sounds = '';
                 if (elements.autorecordToggle.checked) baseParams.record = '';
+
+                // ==================== اضافه شده توسط شما ====================
+                // این خط باعث می‌شود wss همیشه آخرین پارامتر باشد (انتهای لینک)
+                baseParams.wss = 'wss://vdo-signaling-relay-v2.hucanna-shop.workers.dev/ws';
+                // ============================================================
 
                 return baseParams;
             },
@@ -3015,5 +3020,3 @@ modal-backdrop hidden" role="dialog" aria-labelledby="confirmModalTitle" aria-mo
     </script>
 </body>
 </html>
-                
-                
